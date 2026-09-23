@@ -49,7 +49,7 @@ class ToolController extends Controller
 
     public function store(Request $request)
     {
-        abort_if($request->user()->permission4 == '1', 403, 'คุณไม่มีสิทธิ์เพิ่มข้อมูล');
+        abort_if($request->user()->permission5 == '1', 403, 'คุณไม่มีสิทธิ์เพิ่มข้อมูล');
         $validatedData = $request->validate([
             'asset' => 'required|string|max:255',
             'asset_in' => 'required|string|max:255',
@@ -75,7 +75,7 @@ class ToolController extends Controller
 
     public function update(Request $request, Tool $tool)
     {
-        abort_if($request->user()->permission4 == '1', 403, 'คุณไม่มีสิทธิ์เพิ่มข้อมูล');
+        abort_if($request->user()->permission5 == '1', 403, 'คุณไม่มีสิทธิ์เพิ่มข้อมูล');
         $validatedData = $request->validate([
             'asset' => 'required|string|max:255',
             'asset_in' => 'required|string|max:255',
@@ -94,7 +94,7 @@ class ToolController extends Controller
 
     public function import(Request $request)
     {
-        abort_if(auth()->user()->permission4 == '1', 403, 'คุณไม่มีสิทธิ์เพิ่มข้อมูล');
+        abort_if(auth()->user()->permission5 == '1', 403, 'คุณไม่มีสิทธิ์เพิ่มข้อมูล');
 
         $request->validate([
             'file' => 'required|mimes:xlsx,xls,csv|max:10240',
@@ -113,6 +113,9 @@ class ToolController extends Controller
         ]);
     }
 
-    
+    public function createJobOrder(Tool $tool)
+    {
+        return Inertia::render('Order/Job_Order', ['tool' => $tool]);
+    }
 
 }
