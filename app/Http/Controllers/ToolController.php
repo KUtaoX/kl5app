@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\JobOrder;
 use App\Models\Tool;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -116,6 +117,72 @@ class ToolController extends Controller
     public function createJobOrder(Tool $tool)
     {
         return Inertia::render('Order/Job_Order', ['tool' => $tool]);
+    }
+
+    // ส่วนของ jobOder
+    public function storeJobOrder(Request $request)
+    {
+        $validated = $request->validate([
+            'asset' => 'required|string',
+            'job_type' => 'required|in:urgent,maintenance,install,audit,internal',
+            'project' => 'nullable|string|max:255',
+            'date' => 'nullable|date',
+            'in_date' => 'nullable|date',
+            'in_time' => 'nullable|string',
+            'out_date' => 'nullable|date',
+            'out_time' => 'nullable|string',
+            'responsible_name' => 'nullable|string|max:255',
+            'mileage' => 'nullable|string|max:50',
+            'hour_meter' => 'nullable|string|max:50',
+            'stop_date' => 'nullable|date',
+            'stop_time' => 'nullable|string',
+            'damage_description' => 'nullable|string',
+            'reporter_name' => 'nullable|string|max:255',
+            'comment' => 'nullable|string',
+            'repair_mode' => 'required|in:outsource,self',
+            'approver_name' => 'nullable|string|max:255',
+        ]);
+
+        $tool = Tool::where('asset', $validated['asset'])->firstOrFail();
+
+        $jobTypeMap = [
+            'urgent' => 0,
+            'maintenance' => 1,
+            'install' => 2,
+            'audit' => 3,
+            'internal' => 4,
+        ];
+
+        JobOrder::create([
+            'id_tool' => $tool->id,
+            'site' => $validated['project'] ?? null,
+            'date_fr' => $validated['date'] ?? null,
+            'datetime1' => $this->combineDateTime($validated['in_date'] ?? null, $validated['in_time'] ?? null),
+            'datetime2' => $this->combineDateTime($validated['out_date'] ?? null, $validated['out_time'] ?? null),
+            'name1' => $validated['responsible_name'] ?? null,
+            'num_mi' => $validated['mileage'] ?? null,
+            'time_work' => $validated['hour_meter'] ?? null,
+            'cause' => $validated['damage_description'] ?? null,
+            'name2' => $validated['reporter_name'] ?? null,
+            'repair' => $validated['comment'] ?? null,
+            'status1' => $jobTypeMap[$validated['job_type']],
+            'status2' => $validated['repair_mode'] === 'outsource' ? 0 : 1,
+            'pm' => $validated['approver_name'] ?? null,
+            'cancel' => 0,
+        ]);
+
+        return redirect()->route('record-tool', $tool)->with('success', 'บันทึก Job Order สำเร็จ');
+    }
+
+    private function combineDateTime(?string $date, ?string $time): ?string
+    {
+        if (! $date) {
+            return null;
+        }
+
+        $time = $time ?: '00:00';
+
+        return "{$date} {$time}:00";
     }
 
 }
