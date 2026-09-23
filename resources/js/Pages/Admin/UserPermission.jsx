@@ -1,0 +1,103 @@
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { Head, router, Link } from '@inertiajs/react';
+import { useState } from 'react';
+
+function UserRow({ user }) {
+    const permissionKeys = Array.from({ length: 5 }, (_, i) => `permission${i + 1}`);;
+
+    const [permissions, setPermissions] = useState(
+        permissionKeys.reduce((acc, key) => {
+            acc[key] = user[key] === '1' || user[key] === 1;
+            return acc;
+        }, {})
+    );
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+
+    function toggle(key) {
+        setPermissions((prev) => ({ ...prev, [key]: !prev[key] }));
+        setSaved(false);
+    }
+
+    function handleSave() {
+        setSaving(true);
+        router.patch(route('user-permissions.update', user.id), permissions, {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => {
+                setSaved(true);
+                setSaving(false);
+            },
+            onError: () => setSaving(false),
+        });
+    }
+
+    return (
+        <tr className="transition hover:bg-gray-50">
+            <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
+                {user.name}
+                <div className="text-xs text-gray-400">{user.email}</div>
+            </td>
+            {permissionKeys.map((key) => (
+                <td key={key} className="px-2 py-3 text-center">
+                    <input
+                        type="checkbox"
+                        checked={permissions[key]}
+                        onChange={() => toggle(key)}
+                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                </td>
+            ))}
+            <td className="whitespace-nowrap px-4 py-3 text-right">
+                <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
+                >
+                    {saving ? 'กำลังบันทึก...' : saved ? 'บันทึกแล้ว ✓' : 'Save'}
+                </button>
+            </td>
+        </tr>
+    );
+}
+
+export default function Index({ users }) {
+    return (
+        <AuthenticatedLayout
+            header={
+                <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                    User Permissions
+                </h2>
+            }
+        >
+            <Head title="User Permissions" />
+
+            <div className="py-8">
+                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                    <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200 text-sm">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-4 py-3 text-left font-semibold text-gray-600">User</th>
+                                            <th> Admin </th>
+                                            <th> Can Add</th>
+                                            <th> Can Edit </th>
+                                            <th> Can Delete </th>
+                                            <th> Read Only </th>
+                                        <th className="px-4 py-3"></th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {users.map((user) => (
+                                        <UserRow key={user.id} user={user} />
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </AuthenticatedLayout>
+    );
+}
