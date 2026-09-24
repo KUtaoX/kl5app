@@ -50,62 +50,66 @@ export default function Index({ tools, filters }) {
             <div className="py-8">
                 <div className="mx-auto max-w-full px-4 sm:px-6 lg:px-8">
 
-                    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
-                            <select
-                                value={searchColumn}
-                                onChange={(e) => setSearchColumn(e.target.value)}
-                                className="rounded-lg border border-gray-300 py-2 px-6 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                            >
-                                <option value="all">Select Filter</option>
-                                <option value="asset">ASSET CODE</option>
-                                <option value="asset_in">ASSET NO.</option>
-                                <option value="io_no">IO PRE.</option>
-                                <option value="io_no2">IO COR.</option>
-                                <option value="name">NAME</option>
-                                <option value="model">MODEL</option>
-                                <option value="serial">SERIAL</option>
-                                <option value="project_site">PROJECT SITE</option>
-                            </select>
-
-                            <form onSubmit={handleSearch} className="flex w-full max-w-sm gap-2">
-                                <div className="relative w-full">
-                                    <svg
-                                        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
-                                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                                    >
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" />
-                                    </svg>
-                                    <input
-                                        type="text"
-                                        value={search}
-                                        onChange={(e) => setSearch(e.target.value)}
-                                        placeholder="ค้นหา ชื่อ / รหัสทรัพย์สิน / Serial..."
-                                        className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                    />
-                                </div>
-                                <button
-                                    type="submit"
-                                    className="shrink-0 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-200"
-                                >
-                                    Search
-                                </button>
-                            </form>
-                        </div>
+                    <div className="mb-4 grid grid-cols-1 items-center gap-3 sm:grid-cols-3">
                         
+                    <div className="hidden sm:block" />
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
+                        <select
+                            value={searchColumn}
+                            onChange={(e) => setSearchColumn(e.target.value)}
+                            className="rounded-lg border border-gray-300 py-2 px-6 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        >
+                            <option value="all">Select Filter</option>
+                            <option value="asset">ASSET CODE</option>
+                            <option value="asset_in">ASSET NO.</option>
+                            <option value="io_no">IO PRE.</option>
+                            <option value="io_no2">IO COR.</option>
+                            <option value="name">NAME</option>
+                            <option value="model">MODEL</option>
+                            <option value="serial">SERIAL</option>
+                            <option value="project_site">PROJECT SITE</option>
+                        </select>
+
+                        <form onSubmit={handleSearch} className="flex w-full max-w-sm gap-2">
+                            <div className="relative w-full">
+                                <svg
+                                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                                >
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" />
+                                </svg>
+                                <input
+                                    type="text"
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    placeholder="ค้นหา ชื่อ / รหัสทรัพย์สิน / Serial..."
+                                    className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                />
+                            </div>
+                            <button
+                                type="submit"
+                                className="shrink-0 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-200"
+                            >
+                                Search
+                            </button>
+                        </form>
+                    </div>
+
+                    <div className="flex justify-end">
                         {canAdd && (
                             <button
                                 type="button"
                                 onClick={() => router.visit('/add-tool')}  
                                 className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700"
                             >
-                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                                </svg>
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                            </svg>
                                 Add Tool
                             </button>
                         )}
                     </div>
+                </div>
 
                     <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
                         <div className="overflow-x-auto">

@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Imports\ToolsImport;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\DB;
 
 class ToolController extends Controller
 {
@@ -108,10 +109,54 @@ class ToolController extends Controller
 
     public function show(Tool $tool)
     {
+        $jobOrders = JobOrder::where('id_tool', $tool->id)
+            ->orderByDesc('date_fr')
+            ->get()
+            ->map(function ($jo) {
+                $cost = DB::table('job_order_sub')
+                    ->where('job_id', $jo->id)
+                    ->sum('price1');
+
+                return [
+                    'id' => $jo->id,
+                    'date' => optional($jo->date_fr)->format('Y-m-d'),
+                    'job_order_no' => $this->formatJobOrderNo($jo->type_code, $jo->job_id, $jo->date_fr),
+                    'description' => $jo->cause,
+                    'site' => $jo->site,
+                    'pm_app' => $jo->pm,
+                    'cost' => $cost,
+                    'cancel' => (bool) $jo->cancel,
+                    'cancel_des' => $jo->cancel_des,
+                ];
+            });
+
         return Inertia::render('Tool/Record_Tool', [
             'tool' => $tool,
-            'jobOrders' => [], // ยังไม่มีตาราง job_orders จริง ส่งเป็น array เปล่าไปก่อน
+            'jobOrders' => $jobOrders,
         ]);
+    }
+
+    private function formatJobOrderNo($typeCode, $jobId, $dateFr): string
+    {
+        $jobId = (int) $jobId;
+
+        if ($jobId < 10) {
+            $padded = '00' . $jobId;
+        } elseif ($jobId < 100) {
+            $padded = '0' . $jobId;
+        } else {
+            $padded = (string) $jobId;
+        }
+
+        $prefix = match ((int) $typeCode) {
+            2 => 'LGT',
+            0 => 'MT',
+            default => 'TEMP',
+        };
+
+        $year = $dateFr ? $dateFr->format('Y') : now()->year;
+
+        return "{$prefix}/JOB-{$padded}-{$year}";
     }
 
     public function createJobOrder(Tool $tool)
@@ -124,23 +169,23 @@ class ToolController extends Controller
     {
         $validated = $request->validate([
             'asset' => 'required|string',
-            'job_type' => 'required|in:urgent,maintenance,install,audit,internal',
-            'project' => 'nullable|string|max:255',
+            'job_type' => 'required|string',
+            'project' => 'nullable|string',
             'date' => 'nullable|date',
             'in_date' => 'nullable|date',
             'in_time' => 'nullable|string',
             'out_date' => 'nullable|date',
             'out_time' => 'nullable|string',
-            'responsible_name' => 'nullable|string|max:255',
-            'mileage' => 'nullable|string|max:50',
-            'hour_meter' => 'nullable|string|max:50',
+            'responsible_name' => 'nullable|string',
+            'mileage' => 'nullable|string',
+            'hour_meter' => 'nullable|string',
             'stop_date' => 'nullable|date',
             'stop_time' => 'nullable|string',
             'damage_description' => 'nullable|string',
-            'reporter_name' => 'nullable|string|max:255',
+            'reporter_name' => 'nullable|string',
             'comment' => 'nullable|string',
-            'repair_mode' => 'required|in:outsource,self',
-            'approver_name' => 'nullable|string|max:255',
+            'repair_mode' => 'nullable|string',
+            'approver_name' => 'nullable|string',
         ]);
 
         $tool = Tool::where('asset', $validated['asset'])->firstOrFail();
@@ -153,8 +198,13 @@ class ToolController extends Controller
             'internal' => 4,
         ];
 
+        $typeCode = $this->resolveEquipmentTypeCode($tool->asset);
+        $nextRunningNumber = (JobOrder::max('job_id') ?? 0) + 1;
+
         JobOrder::create([
             'id_tool' => $tool->id,
+            'job_id' => $nextRunningNumber,
+            'type_code' => $typeCode,
             'site' => $validated['project'] ?? null,
             'date_fr' => $validated['date'] ?? null,
             'datetime1' => $this->combineDateTime($validated['in_date'] ?? null, $validated['in_time'] ?? null),
@@ -172,6 +222,18 @@ class ToolController extends Controller
         ]);
 
         return redirect()->route('record-tool', $tool)->with('success', 'บันทึก Job Order สำเร็จ');
+    }
+
+    private function resolveEquipmentTypeCode(?string $asset): int
+    {
+        if (! $asset) {
+            return 0;
+        }
+
+        $prefix = substr($asset, 0, 7);
+        $code = DB::table('code')->where('code', $prefix)->first();
+
+        return $code->type_code ?? 0;
     }
 
     private function combineDateTime(?string $date, ?string $time): ?string

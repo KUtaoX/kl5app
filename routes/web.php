@@ -35,13 +35,17 @@ Route::middleware('auth')->group(function () {
 
 Route ::middleware('auth')->group(function () {
     Route::get('/machine-list', [ToolController::class, 'index'])->name('machine-list');
-    Route::get('/record-tool/{tool}', [ToolController::class, 'show']);
+    Route::get('/record-tool/{tool}', [ToolController::class, 'show'])->name('record-tool');
     Route::get('/add-tool', [ToolController::class, 'create']);
     Route::post('/add-tool', [ToolController::class, 'store']);
     Route::get('/edit-tool/{tool}', [ToolController::class, 'edit']);
     Route::put('/edit-tool/{tool}', [ToolController::class, 'update']);
     Route::post('/import-tools', [ToolController::class, 'import'])->name('tools.import');
     Route::get('/job-order/create/{tool}', [ToolController::class, 'createJobOrder'])->name('job-order.create');
+    Route::post('/job-order', [ToolController::class, 'storeJobOrder'])->name('job-order.store');
+    Route::get('/record/{id}', [RecordController::class, 'show']);
+    Route::post('/record/{id}', [RecordController::class, 'store']);
+    Route::get('/record/{id}/edit', [RecordController::class, 'edit']);
 });
 
 Route::middleware('auth', 'permission:permission1')->group(function () {
