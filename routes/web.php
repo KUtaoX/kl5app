@@ -46,6 +46,11 @@ Route ::middleware('auth')->group(function () {
     Route::get('/record/{id}', [RecordController::class, 'show']);
     Route::post('/record/{id}', [RecordController::class, 'store']);
     Route::get('/record/{id}/edit', [RecordController::class, 'edit']);
+    Route::get('/record/{id}/cancel', [RecordController::class, 'cancel'])->name('record.cancel');
+    Route::put('/record/{id}/cancel', [RecordController::class, 'cancel'])->name('record.cancel');
+    Route::put('/record/{id}/cancel', [RecordController::class, 'cancelSave'])->name('record.cancel');
+    Route::get('/record/{id}/print', [RecordController::class, 'print'])->name('record.print');
+    Route ::get('/job-order-home',[RecordController::class, 'jobOrderHome'])->name('job-order-home');
 });
 
 Route::middleware('auth', 'permission:permission1')->group(function () {

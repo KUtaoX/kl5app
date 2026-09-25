@@ -53,6 +53,12 @@ export default function AuthenticatedLayout({ header, children }) {
                                 >
                                     Machine List
                                 </NavLink>
+                                <NavLink
+                                    href={route('job-order-home')}
+                                    active={route().current('job-order-home')}
+                                >
+                                    Job Order
+                                </NavLink>
                             </div>
                         </div>
 
@@ -179,7 +185,13 @@ export default function AuthenticatedLayout({ header, children }) {
                         >
                             Machine List
                         </ResponsiveNavLink>
-                                        </div>
+                        <ResponsiveNavLink
+                            href={route('job-order-home')}
+                            active={route().current('job-order-home')}
+                        >
+                            Job Order Home
+                        </ResponsiveNavLink>
+                    </div>
 
                     <div className="border-t border-gray-200 pb-1 pt-4">
                         <div className="px-4">

@@ -51,17 +51,6 @@ export default function JobOrder({ tool }) {
         ? `${tool.name ?? ''}${tool.asset ? ` | ${tool.asset}` : ''}`
         : '';
 
-    // function handleSubmit(e) {
-    //     e.preventDefault();
-    //     post('/job-order', {
-    //         data: {
-    //             ...data,
-    //             in_time: `${data.in_time_h}:${data.in_time_m}`,
-    //             out_time: `${data.out_time_h}:${data.out_time_m}`,
-    //             stop_time: `${data.stop_time_h}:${data.stop_time_m}`,
-    //         },
-    //     });
-    // }
     function handleSubmit(e) {
         e.preventDefault();
         transform((data) => ({

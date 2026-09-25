@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class RecordController extends Controller
 {
@@ -26,6 +27,58 @@ class RecordController extends Controller
     public function edit(Request $request, int $id)
     {
         return $this->renderRecordPage($id, true);
+    }
+
+    public function jobOrderHome()
+    {
+        return Inertia::render('Order/Job_Order_Home');
+    }
+
+    public function cancel(Request $request, int $id)
+    {
+        $jobOrder = DB::table('job_order')->where('id', $id)->first();
+        abort_if(!$jobOrder, 404, 'ไม่พบใบสั่งงานนี้');
+
+        $tool = !empty($jobOrder->id_tool)
+            ? DB::table('tool')->where('id', $jobOrder->id_tool)->first()
+            : null;
+
+        $monthShow2 = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+        $thaiDate = function ($date) use ($monthShow2) {
+            if (empty($date) || $date === '0000-00-00') {
+                return '';
+            }
+            $p = explode('-', $date);
+            return ((int) $p[2]) . ' ' . $monthShow2[((int) $p[1]) - 1] . ' ' . ((int) $p[0] + 543);
+        };
+
+        return Inertia::render('Order/Cancel_JobOrder', [
+            'jobOrder' => $jobOrder,
+            'tool' => $tool,
+            'dateFrTh' => $thaiDate($jobOrder->date_fr ?? null),
+            'date1Th' => $thaiDate($jobOrder->date1 ?? null),
+            'date2Th' => $thaiDate($jobOrder->date2 ?? null),
+            'stopDateTh' => $thaiDate($jobOrder->stop_date ?? null),
+        ]);
+    }
+
+    public function cancelSave(Request $request, int $id)
+    {
+        $jobOrder = DB::table('job_order')->where('id', $id)->first();
+        abort_if(!$jobOrder, 404, 'ไม่พบใบสั่งงานนี้');
+
+        $data = $request->validate([
+            'remark' => 'nullable|string',
+        ]);
+
+        DB::table('job_order')->where('id', $id)->update([
+            'cancel' => 1,
+            'cancel_des' => '***ยกเลิกJOB เนื่องจาก' . ($data['remark'] ?? ''),
+        ]);
+
+        return redirect()
+            ->route('record-tool', $jobOrder->id_tool)
+            ->with('success', 'ยกเลิกใบสั่งงานเรียบร้อยแล้ว');
     }
 
     private function renderRecordPage(int $id, bool $editable)
@@ -305,5 +358,71 @@ class RecordController extends Controller
         return redirect()
         ->route('record-tool', $jobOrder->id_tool)
         ->with('success', 'บันทึกข้อมูลเรียบร้อยแล้ว');
+    }
+    public function print(int $id)
+    {
+        $data = $this->loadJobOrderForPrint($id);
+
+        $pdf = Pdf::loadView('pdf.job-order', $data)->setPaper('a4', 'portrait');
+
+        return $pdf->stream('job-order-' . str_replace('/', '-', $data['jobOrderNo']) . '.pdf');
+    }
+
+    private function loadJobOrderForPrint(int $id): array
+    {
+        $jobOrder = DB::table('job_order')
+            ->selectRaw('*,
+                DATE_FORMAT(datetime1, "%Y-%m-%d") as stop_date,
+                HOUR(datetime1) as stop_hour,
+                MINUTE(datetime1) as stop_minute,
+                DATE_FORMAT(datetime2, "%Y-%m-%d") as finish_date_raw,
+                HOUR(datetime2) as finish_hour,
+                MINUTE(datetime2) as finish_minute
+            ')
+            ->where('id', $id)
+            ->first();
+
+        abort_if(!$jobOrder, 404, 'ไม่พบใบสั่งงานนี้');
+
+        $tool  = DB::table('tool')->where('id', $jobOrder->id_tool)->first();
+        $subs  = DB::table('job_order_sub')->where('job_id', $jobOrder->id)->orderBy('id')->get();
+        $nameP1 = DB::table('job_order_who1')->where('job_id', $jobOrder->id)->orderBy('id')->pluck('name')->all();
+        $nameP2 = DB::table('job_order_who2')->where('job_id', $jobOrder->id)->orderBy('id')->pluck('name')->all();
+
+        $time1parts = $jobOrder->time1 ? explode(':', $jobOrder->time1) : ['00', '00'];
+        $time2parts = $jobOrder->time2 ? explode(':', $jobOrder->time2) : ['00', '00'];
+
+        $prefix = match ((int) $jobOrder->type_code) {
+            2 => 'LGT',
+            0 => 'MT',
+            default => 'TEMP',
+        };
+        $jobOrderNo = $prefix . '/JOB-' . str_pad((string) $jobOrder->job_id, 3, '0', STR_PAD_LEFT)
+            . '/' . substr((string) date('Y', strtotime($jobOrder->date_fr)), 2, 2);
+
+        $monthShort = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+        $thaiDate = function (?string $date) use ($monthShort) {
+            if (!$date) {
+                return '';
+            }
+            [$y, $m, $d] = explode('-', $date);
+            return ((int) $d) . ' ' . $monthShort[((int) $m) - 1] . ' ' . ((int) $y + 543);
+        };
+
+        return [
+            'jobOrder'    => $jobOrder,
+            'tool'        => $tool,
+            'subs'        => $subs,
+            'nameP1'      => $nameP1,
+            'nameP2'      => $nameP2,
+            'jobOrderNo'  => $jobOrderNo,
+            'dateFrTh'    => $thaiDate($jobOrder->date_fr),
+            'date1Th'     => $thaiDate($jobOrder->date1),
+            'date2Th'     => $thaiDate($jobOrder->date2),
+            'stopDateTh'  => $thaiDate($jobOrder->stop_date),
+            'finishDateTh'=> $thaiDate($jobOrder->finish_date_raw),
+            'time1'       => $time1parts[0] . ':' . $time1parts[1],
+            'time2'       => $time2parts[0] . ':' . $time2parts[1],
+        ];
     }
 }

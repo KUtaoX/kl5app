@@ -88,22 +88,33 @@ export default function RecordTool({ tool, jobOrders = [] }) {
                                                 <td className="whitespace-nowrap px-4 py-3 text-left text-gray-700">{jo.site}</td>
                                                 <td className="whitespace-nowrap px-4 py-3 text-left text-gray-700">{jo.pm_app}</td>
                                                 <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-gray-700">{jo.cost}</td>
-                                                <td className="whitespace-nowrap px-4 py-3 text-center">
-                                                    <Link href={`/record/${jo.id}`} className="text-indigo-600 hover:underline">Record</Link>
+                                                {jo.cancel ? (
+                                                <td
+                                                    colSpan={2 + (canEdit ? 1 : 0) + (canDelete ? 1 : 0)}
+                                                    className="whitespace-nowrap px-4 py-3 text-left text-gray-700"
+                                                >
+                                                    ยกเลิกเนื่องจาก : {jo.cancel_des}
                                                 </td>
-                                                <td className="px-4 py-3 text-center">
-                                                    <Link href={`/record/${jo.id}/print`} className="text-indigo-600 hover:underline">Print</Link>
-                                                </td>
-                                                {canEdit && (
-                                                    <td className="px-4 py-3 text-center">
-                                                        <Link href={`/record/${jo.id}/edit`} className="text-indigo-600 hover:underline">Edit</Link>
-                                                    </td>
-                                                )}
-                                                {canDelete && (
+                                            ) : (
+                                                <>
                                                     <td className="whitespace-nowrap px-4 py-3 text-center">
-                                                        <button className="text-red-600 hover:underline">Cancel</button>
+                                                        <Link href={`/record/${jo.id}`} className="text-indigo-600 hover:underline">Record</Link>
                                                     </td>
-                                                )}
+                                                    <td className="px-4 py-3 text-center">
+                                                        <a href={`/record/${jo.id}/print`} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Print</a>
+                                                    </td>
+                                                    {canEdit && (
+                                                        <td className="px-4 py-3 text-center">
+                                                            <Link href={`/record/${jo.id}/edit`} className="text-indigo-600 hover:underline">Edit</Link>
+                                                        </td>
+                                                    )}
+                                                    {canDelete && (
+                                                        <td className="whitespace-nowrap px-4 py-3 text-center">
+                                                            <Link href={`/record/${jo.id}/cancel`} className="text-red-600 hover:underline">Cancel</Link>
+                                                        </td>
+                                                    )}
+                                                </>
+                                            )}
                                             </tr>
                                         ))
                                     )}
