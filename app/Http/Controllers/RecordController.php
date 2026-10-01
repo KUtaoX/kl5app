@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Exports\JobOrderHomeExport;
+use App\Queries\JobOrderHomeQuery;
 
 class RecordController extends Controller
 {
@@ -29,10 +31,36 @@ class RecordController extends Controller
         return $this->renderRecordPage($id, true);
     }
 
-    public function jobOrderHome()
+    public function jobOrderHome(Request $request)
     {
-        return Inertia::render('Order/Job_Order_Home');
+        $filters = JobOrderHomeQuery::filters($request);
+
+        $jobs = JobOrderHomeQuery::build($filters)
+            ->paginate(10)
+            ->withQueryString()
+            ->through(fn ($row) => JobOrderHomeQuery::row($row));
+
+        return Inertia::render('Order/Job_Order_Home', [
+            'jobs'     => $jobs,
+            'filters'  => $filters,
+            'jobTypes' => JobOrderHomeQuery::JOB_TYPES,
+            'groups'   => JobOrderHomeQuery::GROUPS,
+        ]);
     }
+
+    /**
+     * GET /job-order-home/export — Export ตามตัวกรองเดียวกับหน้าจอ
+     */
+    public function jobOrderHomeExport(Request $request)
+    {
+        $filters = JobOrderHomeQuery::filters($request);
+
+        return Excel::download(
+            new JobOrderHomeExport($filters),
+            'job-orders-' . now()->format('Ymd-His') . '.xlsx'
+        );
+    }
+
 
     public function cancel(Request $request, int $id)
     {

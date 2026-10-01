@@ -9,6 +9,15 @@
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+    
+        <!-- โหมด Day / Night: ใส่ class ก่อนหน้าแสดงผล กันจอกระพริบเป็นสีขาว -->
+        <script>
+            try {
+                if (localStorage.getItem('theme') === 'dark') {
+                    document.documentElement.classList.add('dark');
+                }
+            } catch (e) {}
+        </script>
 
         <!-- Scripts -->
         @routes

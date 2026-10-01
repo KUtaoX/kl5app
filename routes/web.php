@@ -51,6 +51,8 @@ Route ::middleware('auth')->group(function () {
     Route::put('/record/{id}/cancel', [RecordController::class, 'cancelSave'])->name('record.cancel');
     Route::get('/record/{id}/print', [RecordController::class, 'print'])->name('record.print');
     Route ::get('/job-order-home',[RecordController::class, 'jobOrderHome'])->name('job-order-home');
+    Route::get('/job-order-home/export', [RecordController::class, 'jobOrderHomeExport'])->name('job-order-home.export');
+    Route::inertia('/maintenance', 'Mainten/Mainten_Status')->name('maintenance');
 });
 
 Route::middleware('auth', 'permission:permission1')->group(function () {

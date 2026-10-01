@@ -1,3 +1,60 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* โหมด Night: ช่องกรอกข้อมูลของ @tailwindcss/forms ใส่พื้นขาวไว้ตายตัว จึงต้องสลับเอง */
+@layer base {
+    @media screen {
+        .dark
+            :is(
+                [type='text'],
+                [type='email'],
+                [type='url'],
+                [type='password'],
+                [type='number'],
+                [type='date'],
+                [type='datetime-local'],
+                [type='month'],
+                [type='search'],
+                [type='tel'],
+                [type='time'],
+                [type='week'],
+                [type='file'],
+                [multiple],
+                textarea,
+                select
+            ) {
+            background-color: rgb(var(--c-surface));
+            color: rgb(var(--c-gray-900));
+        }
+
+        /*
+         * dropdown ของ <select> เป็นหน้าต่างที่เบราว์เซอร์วาดเอง (โดยเฉพาะ Chrome / Edge บน Windows)
+         * ถ้าไม่กำหนดสีให้ <option> ตรง ๆ จะได้พื้นขาว + ตัวอักษรสีอ่อนที่สืบทอดมา จนมองไม่เห็นข้อความ
+         */
+        .dark select {
+            color-scheme: dark;
+            color: rgb(var(--c-gray-900));
+            background-color: rgb(var(--c-surface));
+        }
+
+        .dark select option,
+        .dark select optgroup {
+            color: rgb(var(--c-gray-900));
+            background-color: rgb(var(--c-surface));
+        }
+
+        .dark select option:checked {
+            color: #fff;
+            background-color: rgb(79 70 229); /* indigo-600 */
+        }
+
+        .dark select option:disabled {
+            color: rgb(var(--c-gray-400));
+        }
+
+        .dark :is([type='checkbox'], [type='radio']):not(:checked) {
+            background-color: rgb(var(--c-surface));
+        }
+    }
+}
