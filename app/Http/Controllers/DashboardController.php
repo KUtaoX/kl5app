@@ -278,8 +278,8 @@ class DashboardController extends Controller
             'waiting'  => $this->repairs($site)->whereRaw("{$s1} = '1' AND {$s2} IN ('', '1')")->count(),
             'done'     => $this->repairs($site)->whereRaw("{$s1} <> '2' AND {$s2} = '3' AND {$qc} = ''")->count(),
             'accepted' => $this->repairs($site)->whereRaw("{$qc} = '1'")
-                ->where('f.date_qc', '>=', $from->toDateString())
-                ->where('f.date_qc', '<=', $to->toDateString())
+                ->where('f.date_qc', '>=', $from->startOfDay()->toDateTimeString())
+                ->where('f.date_qc', '<', $to->addDay()->startOfDay()->toDateTimeString())
                 ->count(),
             'rejected' => $this->repairs($site)->whereRaw("{$s1} <> '2' AND {$s2} <> '2' AND {$qc} = '2'")->count(),
         ];
@@ -305,6 +305,7 @@ class DashboardController extends Controller
             ];
         }
         foreach ($rows as $r) {
+            if ($r->status1 === null) continue;
             $t = (int) $r->status1;
             if (isset($months[$r->ym]) && $t >= 0 && $t < $types) {
                 $months[$r->ym]['counts'][$t] = (int) $r->n;

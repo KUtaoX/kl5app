@@ -8,6 +8,7 @@ use Inertia\Inertia;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Exports\JobOrderHomeExport;
 use App\Queries\JobOrderHomeQuery;
+use Maatwebsite\Excel\Facades\Excel;
 
 class RecordController extends Controller
 {
