@@ -18,7 +18,7 @@ import plugin from 'tailwindcss/plugin';
 const SURFACE = '#171b24'; // พื้นการ์ด / nav / header ในโหมด Night
 const PAGE_DARK = '#0f1218'; // พื้นหลังหน้าในโหมด Night
 
-// ไล่จากอ่อนสุด (50) ไปเข้มสุด (950) — ในโหมด Night จึงกลับด้าน
+// ไล่จากอ่อนสุด (50) ไปเข้มสุด (950) — ในโหมด Night
 const GRAY_DARK = {
     50: '#1d212c',
     100: '#252b38',

@@ -10,6 +10,7 @@ use App\Http\Controllers\ToolController;
 use App\Http\Controllers\UserPermissionController;
 use App\Http\Controllers\RecordController;
 use App\Http\Controllers\JobOrderTypeController;
+use App\Http\Controllers\MaintenanceController;
 
 
 // Route::get('/record-tool', [RecordController::class, 'index'])->name('record-tool.index');
@@ -52,7 +53,11 @@ Route ::middleware('auth')->group(function () {
     Route::get('/record/{id}/print', [RecordController::class, 'print'])->name('record.print');
     Route ::get('/job-order-home',[RecordController::class, 'jobOrderHome'])->name('job-order-home');
     Route::get('/job-order-home/export', [RecordController::class, 'jobOrderHomeExport'])->name('job-order-home.export');
-    Route::inertia('/maintenance', 'Mainten/Mainten_Status')->name('maintenance');
+    Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maintenance');
+    Route::post('/maintenance', [MaintenanceController::class, 'store'])->name('maintenance.store');
+    Route::patch('/maintenance/{id}', [MaintenanceController::class, 'update'])->whereNumber('id')->name('maintenance.update');
+    Route::delete('/maintenance/{id}', [MaintenanceController::class, 'destroy'])->whereNumber('id')->name('maintenance.destroy');
+    Route::get('/maintenance/print', [MaintenanceController::class, 'print'])->name('maintenance.print');
 });
 
 Route::middleware('auth', 'permission:permission1')->group(function () {
