@@ -11,6 +11,7 @@ use App\Http\Controllers\UserPermissionController;
 use App\Http\Controllers\RecordController;
 use App\Http\Controllers\JobOrderTypeController;
 use App\Http\Controllers\MaintenanceController;
+use App\Http\Controllers\DashboardController;
 
 
 // Route::get('/record-tool', [RecordController::class, 'index'])->name('record-tool.index');
@@ -24,9 +25,7 @@ Route::get('/', function () {
     ]);
 });
 
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -48,7 +47,7 @@ Route ::middleware('auth')->group(function () {
     Route::post('/record/{id}', [RecordController::class, 'store']);
     Route::get('/record/{id}/edit', [RecordController::class, 'edit']);
     Route::get('/record/{id}/cancel', [RecordController::class, 'cancel'])->name('record.cancel');
-    Route::put('/record/{id}/cancel', [RecordController::class, 'cancel'])->name('record.cancel');
+    // Route::put('/record/{id}/cancel', [RecordController::class, 'cancel'])->name('record.cancel');
     Route::put('/record/{id}/cancel', [RecordController::class, 'cancelSave'])->name('record.cancel');
     Route::get('/record/{id}/print', [RecordController::class, 'print'])->name('record.print');
     Route ::get('/job-order-home',[RecordController::class, 'jobOrderHome'])->name('job-order-home');

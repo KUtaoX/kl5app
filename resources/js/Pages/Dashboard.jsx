@@ -1,80 +1,11 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link, usePage } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 
 /*
- * Dashboard — frontend อย่างเดียว (ข้อมูลตัวอย่าง)
- * ------------------------------------------------------------------
- * เมื่อทำ backend: ส่ง prop `stats` จาก controller ในรูปแบบเดียวกับ MOCK_STATS
- * แล้วให้ตัวกรอง period / site ส่งค่ากลับไปที่ controller ด้วย router.get(...)
+ * Dashboard — ข้อมูลจาก DashboardController
  * กราฟทั้งหมดวาดด้วย div + Tailwind ไม่ต้องติดตั้ง library เพิ่ม และเปลี่ยนสีตามโหมด Day / Night เอง
  */
-
-// ---------- ข้อมูลตัวอย่าง ----------
-const MONTHS = ['ต.ค.', 'พ.ย.', 'ธ.ค.', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.'];
-// จำนวนใบสั่งงานต่อเดือน แยกตามประเภท (index = job_order.status1)
-const MONTHLY = [
-    [9, 14, 2, 1, 3], [11, 12, 1, 0, 2], [8, 15, 3, 2, 2], [12, 13, 0, 1, 4],
-    [10, 16, 2, 0, 3], [14, 12, 4, 2, 2], [13, 14, 1, 1, 5], [15, 11, 2, 0, 3],
-    [12, 15, 3, 3, 2], [16, 13, 1, 1, 4], [18, 12, 2, 0, 3], [21, 10, 1, 2, 4],
-];
-
-const MOCK_STATS = {
-    sites: ['KL5-TEMP', 'DCPH', 'NEO1', 'VMS1', 'MTG2', 'PRPL', 'esr4', 'ne02'],
-    kpis: {
-        month: { open: 37, openPrev: 31, urgent: 21, urgentPrev: 18, inRepair: 9, waitingQc: 4, cost: 18420.5, costPrev: 14250 },
-        quarter: { open: 37, openPrev: 29, urgent: 55, urgentPrev: 44, inRepair: 9, waitingQc: 4, cost: 49880, costPrev: 41730 },
-        year: { open: 37, openPrev: 26, urgent: 159, urgentPrev: 132, inRepair: 9, waitingQc: 4, cost: 176340, costPrev: 151220 },
-    },
-    attention: {
-        overdue: [
-            { id: 941, code: 'RT-MDBX-11-0184', job: 'TEMP/JOB-941-2026', name: 'ตู้ไฟฟ้า ชั่วคราวสำเร็จรูป', site: 'KL5-TEMP', days: 36 },
-            { id: 949, code: 'RT-SDBX-09-0210', job: 'TEMP/JOB-949-2026', name: 'ตู้ไฟฟ้า ชั่วคราวสำเร็จรูป', site: 'ne02', days: 34 },
-            { id: 966, code: 'RT-MDBX-07-1188', job: 'TEMP/JOB-966-2026', name: 'ตู้ไฟฟ้า ชั่วคราวสำเร็จรูป', site: 'esr4', days: 29 },
-            { id: 969, code: 'RT-SDBX-10-0115', job: 'TEMP/JOB-969-2026', name: 'ตู้ไฟฟ้า ชั่วคราวสำเร็จรูป', site: 'PRPL', days: 30 },
-            { id: 998, code: 'RT-SDBX-10-0123', job: 'TEMP/JOB-998-2026', name: 'ตู้ไฟฟ้า ชั่วคราวสำเร็จรูป', site: 'KL5-TEMP', days: 24 },
-            { id: 1027, code: 'RT-SDBX-13-0050', job: 'TEMP/JOB-1027-2026', name: 'ตู้ไฟฟ้า ชั่วคราวสำเร็จรูป', site: 'KL5-TEMP', days: 22 },
-        ],
-        waitingQc: [
-            { id: 3, code: 'RT-MDBX-07-0835', job: 'ซ่อมเสร็จ 27/9/2569', name: 'ตู้ไฟฟ้า ชั่วคราวสำเร็จรูป', site: 'DCPH', days: 4 },
-            { id: 12, code: 'RT-AIRC-18-0247', job: 'ซ่อมเสร็จ 28/9/2569', name: 'เครื่องปรับอากาศ', site: 'KL5-TEMP', days: 3 },
-            { id: 13, code: 'RT-SDBX-18-0089', job: 'ซ่อมเสร็จ 29/9/2569', name: 'ตู้ไฟฟ้า ชั่วคราวสำเร็จรูป', site: 'KL5-TEMP', days: 2 },
-            { id: 14, code: 'RT-MDBX-18-0016', job: 'ซ่อมเสร็จ 30/9/2569', name: 'ตู้ไฟฟ้า ชั่วคราวสำเร็จรูป', site: 'KL5-TEMP', days: 1 },
-        ],
-        rejected: [
-            { id: 6, code: 'RT-AIRC-18-0123', job: 'Reject 15/9/2569', name: 'เครื่องปรับอากาศ', site: 'MTG2', days: 16 },
-        ],
-        incomplete: [
-            { id: 10, code: 'RT-SDBX-11-0003', job: 'ไม่มี Asset No.', name: '—', site: 'DCPH', days: null },
-            { id: 7, code: 'RT-SDBX-13-0100', job: 'ไม่มีชื่อเครื่อง', name: '—', site: 'DCPH', days: null },
-            { id: 8, code: 'RT-SDBX-11-0184', job: 'ไม่มีชื่อเครื่อง', name: '—', site: 'DCPH', days: null },
-            { id: 15, code: 'RT-TEST-13-0101', job: 'ไม่มี Project Site', name: 'Test02', site: '', days: null },
-        ],
-    },
-    pipeline: { received: 14, waiting: 5, done: 4, accepted: 31, rejected: 1 },
-    costBySite: [
-        { site: 'KL5-TEMP', cost: 62340 }, { site: 'DCPH', cost: 38510 }, { site: 'NEO1', cost: 24880 },
-        { site: 'VMS1', cost: 17260 }, { site: 'MTG2', cost: 13900 }, { site: 'esr4', cost: 9650 },
-        { site: 'PRPL', cost: 6120 }, { site: 'ne02', cost: 3680 },
-    ],
-    topTools: [
-        { id: 101, code: 'RT-AIRC-18-0247', name: 'เครื่องปรับอากาศ', site: 'KL5-TEMP', count: 9, cost: 21450 },
-        { id: 102, code: 'RT-MDBX-07-1188', name: 'ตู้ไฟฟ้า ชั่วคราวสำเร็จรูป', site: 'esr4', count: 7, cost: 12890 },
-        { id: 103, code: 'RT-AIRC-18-0123', name: 'เครื่องปรับอากาศ', site: 'MTG2', count: 6, cost: 15200 },
-        { id: 104, code: 'RT-SDBX-10-0123', name: 'ตู้ไฟฟ้า ชั่วคราวสำเร็จรูป', site: 'KL5-TEMP', count: 5, cost: 4320 },
-        { id: 105, code: 'RT-SCPX-08-0001', name: 'รถปั๊มยิงคอนกรีต', site: 'NEO1', count: 5, cost: 28700 },
-        { id: 106, code: 'RT-MDBX-18-0089', name: 'ตู้ไฟฟ้า ชั่วคราวสำเร็จรูป', site: 'KL5-TEMP', count: 4, cost: 2150 },
-        { id: 107, code: 'RT-SDBX-13-0050', name: 'ตู้ไฟฟ้า ชั่วคราวสำเร็จรูป', site: 'KL5-TEMP', count: 4, cost: 1890 },
-        { id: 108, code: 'RT-MDBX-10-0098', name: 'ตู้ไฟฟ้า ชั่วคราวสำเร็จรูป', site: 'KL5-TEMP', count: 3, cost: 980 },
-        { id: 109, code: 'RT-SDBX-18-0103', name: 'ตู้ไฟฟ้า ชั่วคราวสำเร็จรูป', site: 'KL5-TEMP', count: 3, cost: 1240 },
-        { id: 110, code: 'RT-SDBX-09-0210', name: 'ตู้ไฟฟ้า ชั่วคราวสำเร็จรูป', site: 'ne02', count: 3, cost: 405 },
-    ],
-    groups: [
-        { label: 'TEMP', count: 312 },
-        { label: 'MT', count: 118 },
-        { label: 'LGT', count: 47 },
-    ],
-};
 
 const JOB_TYPES = [
     { label: 'ซ่อมเร่งด่วน', bar: 'bg-red-500', dot: 'bg-red-500' },
@@ -87,13 +18,10 @@ const JOB_TYPES = [
 const GROUP_COLORS = ['bg-indigo-500', 'bg-sky-500', 'bg-amber-400'];
 
 const PERIODS = [
-    { key: 'month', label: 'เดือนนี้', months: 1, compare: 'เดือนก่อน' },
-    { key: 'quarter', label: '3 เดือน', months: 3, compare: '3 เดือนก่อนหน้า' },
-    { key: 'year', label: 'ปีนี้', months: 12, compare: 'ปีก่อน' },
+    { key: 'month', label: 'เดือนนี้', months: 1, compare: 'เดือนก่อน' , openCompare: 'ต้นเดือน' },
+    { key: 'quarter', label: '3 เดือน', months: 3, compare: '3 เดือนก่อนหน้า' , openCompare: 'ต้นช่วง 3 เดือน' },
+    { key: 'year', label: 'ปีนี้', months: 12, compare: 'ปีก่อน' , openCompare: 'ต้นปี' },
 ];
-
-// ถ้าซ่อมถึงจำนวนนี้ในรอบปี ให้ขึ้นป้ายแนะนำพิจารณาเปลี่ยน / ปลดระวาง
-const REPEAT_WARNING = 5;
 
 const baht = (n) => n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
@@ -161,11 +89,12 @@ const ICONS = {
 };
 
 // ---------- กราฟแท่งซ้อนรายเดือน ----------
-function MonthlyChart({ months }) {
-    const data = MONTHLY.slice(-months.length);
+function MonthlyChart({ monthly }) {
+    const months = monthly.map((m) => m.label);
+    const data = monthly.map((m) => m.counts);
     const totals = data.map((row) => row.reduce((a, b) => a + b, 0));
-    const max = Math.max(...totals);
-    const top = Math.ceil(max / 10) * 10;
+    const max = Math.max(0, ...totals);
+    const top = Math.max(10, Math.ceil(max / 10) * 10);
     const ticks = [top, top / 2, 0];
     const [hover, setHover] = useState(null);
 
@@ -209,7 +138,7 @@ function MonthlyChart({ months }) {
                                     style={{ height: `${(totals[i] / top) * 100}%` }}
                                 >
                                     {row.map((v, t) => (
-                                        <div key={t} className={JOB_TYPES[t].bar} style={{ height: `${(v / totals[i]) * 100}%` }} />
+                                        <div key={t} className={JOB_TYPES[t].bar} style={{ height: totals[i] ? `${(v / totals[i]) * 100}%` : 0 }} />
                                     ))}
                                 </div>
 
@@ -246,7 +175,8 @@ function MonthlyChart({ months }) {
 
 // ---------- กราฟแท่งแนวนอน ----------
 function HBar({ items, valueKey, labelKey, format = (v) => v, highlight }) {
-    const max = Math.max(...items.map((i) => i[valueKey]));
+    if (items.length === 0) return <p className="py-8 text-center text-sm text-gray-400">ยังไม่มีข้อมูล</p>;
+    const max = Math.max(1, ...items.map((i) => i[valueKey]));
     return (
         <ul className="space-y-3">
             {items.map((item) => {
@@ -269,16 +199,15 @@ function HBar({ items, valueKey, labelKey, format = (v) => v, highlight }) {
 
 // ---------- รายการที่ต้องจัดการ ----------
 const ATTENTION_TABS = [
-    { key: 'overdue', label: 'ค้างเกิน 7 วัน', tone: 'bg-rose-50 text-rose-700', empty: 'ไม่มีงานค้างนาน' },
+    { key: 'overdue', label: 'ค้างนาน', tone: 'bg-rose-50 text-rose-700', empty: 'ไม่มีงานค้างนาน' },
     { key: 'waitingQc', label: 'รอ QC', tone: 'bg-amber-50 text-amber-700', empty: 'ไม่มีงานรอ QC' },
     { key: 'rejected', label: 'QC Reject', tone: 'bg-rose-50 text-rose-700', empty: 'ไม่มีงานที่ถูก Reject' },
     { key: 'incomplete', label: 'ข้อมูลไม่ครบ', tone: 'bg-gray-100 text-gray-600', empty: 'ข้อมูลครบทุกเครื่อง' },
 ];
 
-function Attention({ data, site }) {
+function Attention({ data, overdueDays }) {
     const [tab, setTab] = useState('overdue');
-    const filtered = (key) => data[key].filter((r) => !site || r.site === site);
-    const list = filtered(tab);
+    const list = data[tab];
     const meta = ATTENTION_TABS.find((t) => t.key === tab);
 
     return (
@@ -286,7 +215,7 @@ function Attention({ data, site }) {
             <div role="tablist" className="-mt-1 mb-4 flex flex-wrap gap-1.5">
                 {ATTENTION_TABS.map((t) => {
                     const active = tab === t.key;
-                    const n = filtered(t.key).length;
+                    const n = data.counts[t.key];
                     return (
                         <button
                             key={t.key}
@@ -298,8 +227,8 @@ function Attention({ data, site }) {
                                 active ? 'bg-gray-100 text-gray-900 ring-1 ring-gray-200' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
                             }`}
                         >
-                            {t.label}
-                            <span className={`rounded-full px-1.5 text-xs tabular-nums ${n ? t.tone : 'bg-gray-100 text-gray-400'}`}>{n}</span>
+                            {t.key === 'overdue' ? `ค้างเกิน ${overdueDays} วัน` : t.label}
+                            <span className={`rounded-full px-1.5 text-xs tabular-nums ${n ? t.tone : 'bg-gray-100 text-gray-400'}`}>{n.toLocaleString()}</span>
                         </button>
                     );
                 })}
@@ -312,7 +241,7 @@ function Attention({ data, site }) {
                     {list.map((r) => (
                         <li key={`${tab}-${r.id}`}>
                             <Link
-                                href={tab === 'overdue' ? `/record/${r.id}` : route('maintenance')}
+                                href={r.href}
                                 className="flex items-center gap-4 px-5 py-3 transition hover:bg-gray-50"
                             >
                                 <div className="min-w-0 flex-1">
@@ -326,7 +255,7 @@ function Attention({ data, site }) {
                                     </p>
                                 </div>
                                 {r.days !== null && (
-                                    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium tabular-nums ${r.days >= 30 ? 'bg-rose-50 text-rose-700' : r.days >= 7 ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>
+                                    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium tabular-nums ${r.days >= 30 ? 'bg-rose-50 text-rose-700' : r.days >= overdueDays ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>
                                         {r.days} วัน
                                     </span>
                                 )}
@@ -337,6 +266,11 @@ function Attention({ data, site }) {
                         </li>
                     ))}
                 </ul>
+            )}
+            {data.counts[tab] > list.length && (
+                <p className="mt-3 text-center text-xs text-gray-400">
+                    แสดง {list.length} จาก {data.counts[tab].toLocaleString()} รายการ
+                </p>
             )}
         </Card>
     );
@@ -350,7 +284,7 @@ function Pipeline({ data }) {
         { label: 'ซ่อมเสร็จ รอ QC', value: data.done, color: 'bg-amber-400', note: 'รอตรวจคุณภาพ' },
         { label: 'ผ่าน QC', value: data.accepted, color: 'bg-emerald-500', note: 'ช่วงเวลาที่เลือก' },
     ];
-    const max = Math.max(...steps.map((s) => s.value));
+    const max = Math.max(1, ...steps.map((s) => s.value));
 
     return (
         <Card
@@ -391,24 +325,39 @@ function Pipeline({ data }) {
 }
 
 // =====================================================================
-export default function Dashboard({ stats = MOCK_STATS }) {
+export default function Dashboard({ stats, filters }) {
     const user = usePage().props.auth.user;
     const isReadOnly = user.permission5 == '1';
 
-    const [period, setPeriod] = useState('month');
-    const [site, setSite] = useState('');
+    const [loading, setLoading] = useState(false);
+    const period = filters.period;
+    const site = filters.site;
 
-    // TODO backend: router.get(route('dashboard'), { period, site }, { preserveState: true })
+    const visit = (next) =>
+        router.get(
+            route('dashboard'),
+            Object.fromEntries(Object.entries({ period, site, ...next }).filter(([, v]) => v)),
+            {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+                onStart: () => setLoading(true),
+                onFinish: () => setLoading(false),
+            },
+        );
+
     const p = PERIODS.find((x) => x.key === period);
-    const k = stats.kpis[period];
-    const months = useMemo(() => MONTHS.slice(-Math.max(p.months, 6)), [p.months]);
+    const k = stats.kpi;
     const groupTotal = stats.groups.reduce((a, g) => a + g.count, 0);
+    const REPEAT_WARNING = stats.repeatWarning;
 
     return (
         <AuthenticatedLayout
             header={
                 <div className="flex flex-wrap items-center justify-between gap-4">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">Dashboard</h2>
+                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                        Dashboard <span className="ms-2 text-sm font-normal text-gray-500">{stats.rangeLabel}</span>
+                    </h2>
                     <div className="flex flex-wrap items-center gap-2 print:hidden">
                         <div role="radiogroup" aria-label="ช่วงเวลา" className="inline-flex rounded-lg bg-gray-100 p-0.5">
                             {PERIODS.map((x) => (
@@ -417,7 +366,7 @@ export default function Dashboard({ stats = MOCK_STATS }) {
                                     type="button"
                                     role="radio"
                                     aria-checked={period === x.key}
-                                    onClick={() => setPeriod(x.key)}
+                                    onClick={() => visit({ period: x.key })}
                                     className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
                                         period === x.key ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:text-gray-800'
                                     }`}
@@ -428,7 +377,7 @@ export default function Dashboard({ stats = MOCK_STATS }) {
                         </div>
                         <select
                             value={site}
-                            onChange={(e) => setSite(e.target.value)}
+                            onChange={(e) => visit({ site: e.target.value })}
                             aria-label="Site"
                             className="rounded-lg border border-gray-300 py-1.5 pl-3 pr-8 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         >
@@ -444,7 +393,7 @@ export default function Dashboard({ stats = MOCK_STATS }) {
             <Head title="Dashboard" />
 
             <div className="py-8">
-                <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+                <div className={`mx-auto max-w-7xl space-y-6 px-4 transition-opacity sm:px-6 lg:px-8 ${loading ? 'opacity-60' : ''}`}>
                     {/* ---------- 1. ตัวเลขสรุป ---------- */}
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                         <Kpi
@@ -453,7 +402,7 @@ export default function Dashboard({ stats = MOCK_STATS }) {
                             unit="งาน"
                             tone="bg-indigo-50 text-indigo-600"
                             icon={<Icon d={ICONS.clipboard} />}
-                            footer={<Delta now={k.open} prev={k.openPrev} compare={p.compare} />}
+                            footer={<Delta now={k.open} prev={k.openPrev} compare={p.openCompare} />}
                         />
                         <Kpi
                             label={`ซ่อมเร่งด่วน (${p.label})`}
@@ -488,21 +437,21 @@ export default function Dashboard({ stats = MOCK_STATS }) {
                     {/* ---------- 2. ต้องจัดการ + ขั้นตอนงานซ่อม ---------- */}
                     {!isReadOnly && (
                         <div className="grid gap-6 lg:grid-cols-3">
-                            <Attention data={stats.attention} site={site} />
+                            <Attention data={stats.attention} overdueDays={stats.overdueDays} />
                             <Pipeline data={stats.pipeline} />
                         </div>
                     )}
 
                     {/* ---------- 3. แนวโน้ม ---------- */}
                     <div className="grid gap-6 lg:grid-cols-3">
-                        <Card title="ใบสั่งงานรายเดือน" subtitle="แยกตามประเภทของงาน · ชี้ที่แท่งเพื่อดูรายละเอียด" className="lg:col-span-2">
-                            <MonthlyChart months={months} />
+                        <Card title="ใบสั่งงานรายเดือน" subtitle={`${period === 'year' ? stats.rangeLabel : '12 เดือนล่าสุด'} · แยกตามประเภทของงาน · ชี้ที่แท่งเพื่อดูรายละเอียด`} className="lg:col-span-2">
+                            <MonthlyChart monthly={stats.monthly} />
                         </Card>
 
-                        <Card title="สัดส่วนตามกลุ่มงาน" subtitle={`ทั้งหมด ${groupTotal.toLocaleString()} งาน`}>
+                        <Card title="สัดส่วนตามกลุ่มงาน" subtitle={`${stats.rangeLabel} · ทั้งหมด ${groupTotal.toLocaleString()} งาน`}>
                             <div className="flex h-3 overflow-hidden rounded-full">
                                 {stats.groups.map((g, i) => (
-                                    <div key={g.label} className={GROUP_COLORS[i]} style={{ width: `${(g.count / groupTotal) * 100}%` }} title={`${g.label}: ${g.count}`} />
+                                    <div key={g.label} className={GROUP_COLORS[i]} style={{ width: groupTotal ? `${(g.count / groupTotal) * 100}%` : 0 }} title={`${g.label}: ${g.count}`} />
                                 ))}
                             </div>
                             <ul className="mt-5 space-y-3">
@@ -515,7 +464,7 @@ export default function Dashboard({ stats = MOCK_STATS }) {
                                         <span className="tabular-nums text-gray-900">
                                             {g.count.toLocaleString()}
                                             <span className="ms-2 inline-block w-10 text-right text-xs text-gray-400">
-                                                {((g.count / groupTotal) * 100).toFixed(0)}%
+                                                {groupTotal ? ((g.count / groupTotal) * 100).toFixed(0) : 0}%
                                             </span>
                                         </span>
                                     </li>
@@ -526,11 +475,11 @@ export default function Dashboard({ stats = MOCK_STATS }) {
 
                     {/* ---------- 4. ค่าใช้จ่าย + เครื่องที่ซ่อมบ่อย ---------- */}
                     <div className="grid gap-6 lg:grid-cols-2">
-                        <Card title="ค่าอะไหล่ตาม Site" subtitle="รอบ 12 เดือน (บาท)">
+                        <Card title="ค่าอะไหล่ตาม Site" subtitle={`${stats.rangeLabel} (บาท)`}>
                             <HBar items={stats.costBySite} valueKey="cost" labelKey="site" format={baht} highlight={site} />
                         </Card>
 
-                        <Card title="เครื่องที่ซ่อมบ่อยที่สุด" subtitle={`รอบ 12 เดือน · ซ่อมตั้งแต่ ${REPEAT_WARNING} ครั้งขึ้นไป ควรพิจารณาเปลี่ยนหรือปลดระวาง`}>
+                        <Card title="เครื่องที่ซ่อมบ่อยที่สุด" subtitle={`${stats.rangeLabel} · ซ่อมตั้งแต่ ${REPEAT_WARNING} ครั้งขึ้นไป ควรพิจารณาเปลี่ยนหรือปลดระวาง`}>
                             <div className="-mx-5 -my-5 overflow-x-auto">
                                 <table className="min-w-full text-sm">
                                     <thead>
@@ -542,8 +491,12 @@ export default function Dashboard({ stats = MOCK_STATS }) {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
+                                        {stats.topTools.length === 0 && (
+                                            <tr>
+                                                <td colSpan={4} className="px-5 py-8 text-center text-sm text-gray-400">ยังไม่มีข้อมูล</td>
+                                            </tr>
+                                        )}
                                         {stats.topTools
-                                            .filter((t) => !site || t.site === site)
                                             .map((t, i) => (
                                                 <tr key={t.id} className="hover:bg-gray-50">
                                                     <td className="px-5 py-2.5 tabular-nums text-gray-400">{i + 1}</td>
@@ -552,7 +505,8 @@ export default function Dashboard({ stats = MOCK_STATS }) {
                                                             {t.code}
                                                         </Link>
                                                         <p className="text-xs text-gray-500">
-                                                            {t.name} · {t.site}
+                                                            {t.name}
+                                                            {t.site ? ` · ${t.site}` : ''}
                                                         </p>
                                                     </td>
                                                     <td className="px-2 py-2.5 text-center">
@@ -569,7 +523,6 @@ export default function Dashboard({ stats = MOCK_STATS }) {
                         </Card>
                     </div>
 
-                    <p className="text-center text-xs text-gray-400 print:hidden">ข้อมูลตัวอย่าง — ยังไม่ได้ต่อกับฐานข้อมูล</p>
                 </div>
             </div>
         </AuthenticatedLayout>

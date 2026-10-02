@@ -558,6 +558,7 @@ function AddTool({ onAdded, onCancel }) {
                     <label className="block">
                         <span className="mb-1.5 block text-sm font-medium text-gray-700">Site</span>
                         <input
+                            type="text"
                             value={data.site}
                             onChange={(e) => setData('site', e.target.value)}
                             placeholder="เช่น DCPH"
@@ -593,6 +594,7 @@ function AddTool({ onAdded, onCancel }) {
                             <div key={i}>
                                 <div className="grid grid-cols-[1fr_1fr_2rem] items-center gap-2">
                                     <input
+                                        type="text"
                                         value={a.code}
                                         onChange={(e) => {
                                             updateAsset(i, 'code', e.target.value);
@@ -603,6 +605,7 @@ function AddTool({ onAdded, onCancel }) {
                                         className={`${inputClass} w-full font-mono uppercase ${assetError(i) ? 'border-rose-400' : ''}`}
                                     />
                                     <input
+                                        type="text"
                                         value={a.asset_no}
                                         onChange={(e) => updateAsset(i, 'asset_no', e.target.value)}
                                         placeholder="GI 4901510137"
