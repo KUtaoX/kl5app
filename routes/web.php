@@ -58,6 +58,7 @@ Route ::middleware('auth')->group(function () {
     Route::patch('/maintenance/{id}', [MaintenanceController::class, 'update'])->whereNumber('id')->name('maintenance.update');
     Route::delete('/maintenance/{id}', [MaintenanceController::class, 'destroy'])->whereNumber('id')->name('maintenance.destroy');
     Route::get('/maintenance/print', [MaintenanceController::class, 'print'])->name('maintenance.print');
+    Route::get('/maintenance/technicians', [MaintenanceController::class, 'technicians'])->name('maintenance.technicians');
 });
 
 Route::middleware('auth', 'permission:permission1')->group(function () {

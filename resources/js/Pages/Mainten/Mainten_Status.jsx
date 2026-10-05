@@ -1,4 +1,5 @@
 import Modal from '@/Components/Modal';
+import TechnicianInput from '@/Components/TechnicianInput';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useCallback, useEffect, useState } from 'react';
@@ -367,13 +368,12 @@ function RepairList({ items, filters, counts, can, notify }) {
                                         </td>
                                         <td className="px-3 py-3">
                                             {can.edit ? (
-                                                <input
-                                                    type="text"
+                                                <TechnicianInput
                                                     value={row.technician}
-                                                    onChange={(e) => setField(row.id, 'technician', e.target.value)}
+                                                    onChange={(name) => setField(row.id, 'technician', name)}
                                                     aria-label={`ช่างซ่อมของ ${row.code}`}
-                                                    placeholder="ชื่อช่าง"
-                                                    className={`${cellInputClass} min-w-[8rem]`}
+                                                    placeholder="พิมพ์ชื่อช่าง"
+                                                    className={`${cellInputClass} min-w-[10rem]`}
                                                 />
                                             ) : (
                                                 <span className="text-gray-700">{row.technician || '—'}</span>

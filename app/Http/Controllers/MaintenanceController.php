@@ -91,6 +91,49 @@ class MaintenanceController extends Controller
     }
 
     // ---------------------------------------------------------------
+    // GET /maintenance/technicians?q= — ค้นหารายชื่อช่างจากตาราง PROFILES (สำหรับช่องช่างซ่อม)
+    // ---------------------------------------------------------------
+    public function technicians(Request $request)
+    {
+        $q = trim((string) $request->query('q', ''));
+        // ตัดช่องว่างออก พิมพ์ "สมชาย ใจ" หรือ "สมชายใจ" ก็เจอเหมือนกัน
+        $term = preg_replace('/\s+/u', '', mb_substr($q, 0, 50));
+        if ($term === '') {
+            return response()->json([]);
+        }
+        $like = '%' . addcslashes($term, '\\%_') . '%';
+        $prefix = addcslashes($term, '\\%_') . '%';
+
+        $fullTh = "REPLACE(CONCAT(COALESCE(p.NAME_TH, ''), COALESCE(p.SURNAME_TH, '')), ' ', '')";
+        $fullEn = "REPLACE(CONCAT(COALESCE(p.NAME, ''), COALESCE(p.SURNAME, '')), ' ', '')";
+
+        $rows = DB::table('PROFILES as p')
+            // เฉพาะพนักงานที่ยังทำงานอยู่ (STATUS = N) และยังไม่ถึงวันที่ออกงาน
+            ->where('p.STATUS', 'N')
+            ->where(fn ($w) => $w->whereNull('p.ENDDATE')
+                ->orWhere('p.ENDDATE', '<', '1971-01-01')
+                ->orWhere('p.ENDDATE', '>=', now()->toDateString()))
+            ->where(fn ($w) => $w
+                ->whereRaw("{$fullTh} LIKE ?", [$like])
+                ->orWhereRaw("{$fullEn} LIKE ?", [$like])
+                ->orWhere('p.STAFF_ID', 'like', $prefix))
+            ->select('p.STAFF_ID', 'p.NAME_TH', 'p.SURNAME_TH', 'p.NAME', 'p.SURNAME', 'p.POSITION', 'p.SITE')
+            // ชื่อที่ขึ้นต้นด้วยคำที่พิมพ์มาก่อน
+            ->orderByRaw("CASE WHEN p.NAME_TH LIKE ? OR p.NAME LIKE ? THEN 0 ELSE 1 END", [$prefix, $prefix])
+            ->orderBy('p.NAME_TH')
+            ->limit(10)
+            ->get();
+
+        return response()->json($rows->map(fn ($r) => [
+            'id'       => $r->STAFF_ID,
+            'name'     => trim(trim((string) $r->NAME_TH) . ' ' . trim((string) $r->SURNAME_TH)) ?: trim($r->NAME . ' ' . $r->SURNAME),
+            'name_en'  => trim(ucwords(strtolower(trim($r->NAME . ' ' . $r->SURNAME)))),
+            'position' => $r->POSITION,
+            'site'     => $r->SITE,
+        ]));
+    }
+
+    // ---------------------------------------------------------------
     // POST /maintenance — Add Tool (ส่งเครื่องเข้าซ่อมได้หลายเครื่องในครั้งเดียว)
     // ---------------------------------------------------------------
     public function store(Request $request): RedirectResponse
