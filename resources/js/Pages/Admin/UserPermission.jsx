@@ -3,7 +3,7 @@ import { Head, router, Link } from '@inertiajs/react';
 import { useState } from 'react';
 
 function UserRow({ user }) {
-    const permissionKeys = Array.from({ length: 5 }, (_, i) => `permission${i + 1}`);;
+    const permissionKeys = Array.from({ length: 5 }, (_, i) => `permission${i + 1}`);
 
     const [permissions, setPermissions] = useState(
         permissionKeys.reduce((acc, key) => {
@@ -14,14 +14,23 @@ function UserRow({ user }) {
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
 
+    // Admin ได้ Add / Edit / Delete ทั้งหมด และไม่เป็น Read Only (ช่องอื่นล็อกไว้ตอนติ๊ก Admin)
+    const isAdmin = permissions.permission1;
+    const ADMIN_VALUES = { permission2: true, permission3: true, permission4: true, permission5: false };
+    const shown = isAdmin ? { ...permissions, ...ADMIN_VALUES } : permissions;
+
     function toggle(key) {
-        setPermissions((prev) => ({ ...prev, [key]: !prev[key] }));
+        setPermissions((prev) => {
+            const next = { ...prev, [key]: !prev[key] };
+            // ติ๊ก Admin = ให้สิทธิ์ครบทันที, เอา Admin ออก = ยังคงสิทธิ์ที่เห็นอยู่ไว้ให้ปรับต่อเอง
+            return key === 'permission1' ? { ...next, ...ADMIN_VALUES } : next;
+        });
         setSaved(false);
     }
 
     function handleSave() {
         setSaving(true);
-        router.patch(route('user-permissions.update', user.id), permissions, {
+        router.patch(route('user-permissions.update', user.id), shown, {
             preserveScroll: true,
             preserveState: true,
             onSuccess: () => {
@@ -42,9 +51,11 @@ function UserRow({ user }) {
                 <td key={key} className="px-2 py-3 text-center">
                     <input
                         type="checkbox"
-                        checked={permissions[key]}
+                        checked={shown[key]}
                         onChange={() => toggle(key)}
-                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        disabled={isAdmin && key !== 'permission1'}
+                        title={isAdmin && key !== 'permission1' ? 'Admin มีสิทธิ์นี้อัตโนมัติ' : undefined}
+                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
                     />
                 </td>
             ))}
@@ -74,6 +85,9 @@ export default function Index({ users }) {
 
             <div className="py-8">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                    <p className="mb-3 text-sm text-gray-500">
+                        ผู้ใช้ที่เป็น <span className="font-medium text-gray-700">Admin</span> ได้สิทธิ์ Add, Edit และ Delete ทุกหน้าโดยอัตโนมัติ และไม่ถูกจำกัดเป็น Read Only
+                    </p>
                     <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200 text-sm">

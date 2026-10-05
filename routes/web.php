@@ -35,6 +35,7 @@ Route::middleware('auth')->group(function () {
 
 Route ::middleware('auth')->group(function () {
     Route::get('/machine-list', [ToolController::class, 'index'])->name('machine-list');
+    Route::delete('/machine-list/{tool}', [ToolController::class, 'destroy'])->name('machine-list.destroy');
     Route::get('/record-tool/{tool}', [ToolController::class, 'show'])->name('record-tool');
     Route::get('/add-tool', [ToolController::class, 'create']);
     Route::post('/add-tool', [ToolController::class, 'store']);

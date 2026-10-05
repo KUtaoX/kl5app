@@ -672,7 +672,7 @@ function AddTool({ onAdded, onCancel }) {
 // หน้า Maintenance Status
 // =====================================================================
 export default function Mainten_Status({ items, filters, counts, can }) {
-    const [section, setSection] = useState('Add Tool');
+    const [section, setSection] = useState(can.add ? 'add' : 'repair');
     const [toast, setToast] = useState(null);
 
     const notify = (message, type = 'success') => setToast({ message, type, at: Date.now() });

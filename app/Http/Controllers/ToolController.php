@@ -94,6 +94,33 @@ class ToolController extends Controller
         return redirect()->route('machine-list')->with('success', 'Tool updated successfully.');
     }
 
+    // ลบได้เฉพาะเครื่องที่ยังไม่มีประวัติใบสั่งงานหรืองานซ่อม เพื่อไม่ให้ประวัติเดิมกลายเป็น "ไม่พบเครื่อง"
+    public function destroy(Request $request, Tool $tool)
+    {
+        $user = $request->user();
+        abort_if($user->permission5 == '1' || $user->permission4 != '1', 403, 'คุณไม่มีสิทธิ์ลบข้อมูล');
+
+        $jobOrders = DB::table('job_order')->where('id_tool', $tool->id)->count();
+        $repairs = DB::table('form1')
+            ->where(fn ($q) => $q->where('id_tool', $tool->id)->orWhere('asset', $tool->asset))
+            ->count();
+
+        if ($jobOrders > 0 || $repairs > 0) {
+            $parts = array_filter([
+                $jobOrders ? "ใบสั่งงาน {$jobOrders} ใบ" : null,
+                $repairs ? "งานซ่อม {$repairs} รายการ" : null,
+            ]);
+
+            return back()->withErrors([
+                'delete' => "ลบ {$tool->asset} ไม่ได้ เพราะมีประวัติ " . implode(' และ ', $parts) . ' ผูกอยู่',
+            ]);
+        }
+
+        $tool->delete();
+
+        return back()->with('success', "ลบ {$tool->asset} แล้ว");
+    }
+
     public function import(Request $request)
     {
         abort_if(auth()->user()->permission5 == '1', 403, 'คุณไม่มีสิทธิ์เพิ่มข้อมูล');

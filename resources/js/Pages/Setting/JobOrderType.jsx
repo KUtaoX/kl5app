@@ -17,6 +17,7 @@ const TYPE_BADGE = {
 export default function JobOrderType({ items }) {
     // const importForm = useForm({ file: null });
     const createForm = useForm({ name: '', code: '', type_code: 0 });
+    // const canDelete = usePage().props.auth.user.permission4 === '1';
 
     // function handleImport(e) {
     //     e.preventDefault();
@@ -153,6 +154,7 @@ export default function JobOrderType({ items }) {
                                                     {TYPE_LABELS[item.type_code] ?? item.type_code}
                                                 </span>
                                             </td>
+                                            
                                             <td className="px-4 py-3 text-right">
                                                 <button
                                                     onClick={() => handleDelete(item)}

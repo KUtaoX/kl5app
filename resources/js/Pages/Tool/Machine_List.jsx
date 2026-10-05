@@ -1,6 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState,useEffect } from 'react';
+import Modal from '@/Components/Modal';
 
 // สีสำหรับ badge Project Site — hash ชื่อไซต์เป็น index คงที่
 // ไซต์เดียวกันจะได้สีเดิมเสมอ ช่วยให้กวาดตาแยกกลุ่มได้ง่ายขึ้น
@@ -31,6 +32,44 @@ export default function Index({ tools, filters }) {
     const canEdit = usePage().props.auth.user.permission3 === '1';
     const canDelete = usePage().props.auth.user.permission4 === '1';
     const columnCount = 8 + (canEdit ? 1 : 0) + (canDelete ? 1 : 0);
+
+    // ---------- ลบเครื่อง ----------
+    const [confirmTool, setConfirmTool] = useState(null);
+    const [deleting, setDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState('');
+    const [toast, setToast] = useState('');
+
+    useEffect(() => {
+        if (!toast) return;
+        const t = setTimeout(() => setToast(''), 2600);
+        return () => clearTimeout(t);
+    }, [toast]);
+
+    function openDelete(tool) {
+        setDeleteError('');
+        setConfirmTool(tool);
+    }
+
+    function closeDelete() {
+        if (deleting) return;
+        setConfirmTool(null);
+        setDeleteError('');
+    }
+
+    function handleDelete() {
+        const tool = confirmTool;
+        setDeleting(true);
+        router.delete(route('machine-list.destroy', tool.id), {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => {
+                setConfirmTool(null);
+                setToast(`ลบ ${tool.asset} แล้ว`);
+            },
+            onError: (errors) => setDeleteError(errors.delete || 'ลบไม่สำเร็จ'),
+            onFinish: () => setDeleting(false),
+        });
+    }
 
     function handleSearch(e) {
         e.preventDefault();
@@ -174,7 +213,14 @@ export default function Index({ tools, filters }) {
                                             )}
                                             {canDelete && (
                                                 <td className="px-4 py-4 text-center align-top">
-                                                    <button className="text-red-600 hover:text-red-900" onClick={(e) => e.stopPropagation()}>
+                                                    <button
+                                                        type="button"
+                                                        className="text-red-600 hover:text-red-900 hover:underline"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            openDelete(tool);
+                                                        }}
+                                                    >
                                                         Delete
                                                     </button>
                                                 </td>
@@ -219,6 +265,49 @@ export default function Index({ tools, filters }) {
                     </div>
                 </div>
             </div>
+
+            {/* ---------- ยืนยันการลบ ---------- */}
+            <Modal show={Boolean(confirmTool)} maxWidth="md" onClose={closeDelete}>
+                {confirmTool && (
+                    <div className="p-6">
+                        <h3 className="text-lg font-semibold text-gray-900">ลบเครื่องนี้ออกจาก Machine List?</h3>
+                        <p className="mt-2 text-sm text-gray-600">
+                            <span className="font-mono text-indigo-600">{confirmTool.asset}</span>
+                            {confirmTool.name ? ` · ${confirmTool.name}` : ''} จะถูกลบถาวร และกู้คืนไม่ได้
+                        </p>
+                        {deleteError && (
+                            <p className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{deleteError}</p>
+                        )}
+                        <div className="mt-6 flex justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={closeDelete}
+                                disabled={deleting}
+                                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
+                            >
+                                {deleteError ? 'ปิด' : 'ยกเลิก'}
+                            </button>
+                            {!deleteError && (
+                                <button
+                                    type="button"
+                                    onClick={handleDelete}
+                                    disabled={deleting}
+                                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-red-700 disabled:opacity-60"
+                                >
+                                    {deleting ? 'กำลังลบ…' : 'ลบเครื่อง'}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
+             {toast && (
+                <div role="status" className="fixed bottom-6 right-6 z-50 rounded-lg bg-gray-900 px-4 py-3 text-sm font-medium text-white shadow-lg dark:bg-gray-100">
+                    {toast}
+                </div>
+            )}
+
         </AuthenticatedLayout>
     );
 }

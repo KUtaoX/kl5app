@@ -9,6 +9,7 @@ import { useState } from 'react';
 export default function AuthenticatedLayout({ header, children }) {
     const user = usePage().props.auth.user;
     const isReadOnly = user.permission5 == '1';
+    const isAdmin = user.permission1 == '1';
 
     const [showingNavigationDropdown, setShowingNavigationDropdown] =
         useState(false);
@@ -32,7 +33,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                 >
                                     Dashboard
                                 </NavLink>
-                                {!isReadOnly && (
+                                {isAdmin && (
                                     <NavLink
                                         href={route('user-permissions.index')}
                                         active={route().current('user-permissions.index')}
@@ -172,12 +173,12 @@ export default function AuthenticatedLayout({ header, children }) {
                         >
                             Dashboard
                         </ResponsiveNavLink>
-                        {!isReadOnly && (
+                        {isAdmin && (
                             <ResponsiveNavLink
                                 href={route('user-permissions.index')}
                                 active={route().current('user-permissions.index')}
                             >
-                                Premission
+                                Permission
                             </ResponsiveNavLink>
                         )}
                         {!isReadOnly && (
