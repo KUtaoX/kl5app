@@ -5,8 +5,9 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-use Barryvdh\DomPDF\Facade\Pdf;
-use App\Exports\JobOrderHomeExport;
+// use Barryvdh\DomPDF\Facade\Pdf;
+use App\Exports\JobOrderExport;
+// use App\Exports\JobOrderHomeExport;
 use App\Queries\JobOrderHomeQuery;
 use App\Pdf\JobOrderFormPdf;
 use Maatwebsite\Excel\Facades\Excel;
@@ -57,10 +58,8 @@ class RecordController extends Controller
     {
         $filters = JobOrderHomeQuery::filters($request);
 
-        return Excel::download(
-            new JobOrderHomeExport($filters),
-            'job-orders-' . now()->format('Ymd-His') . '.xlsx'
-        );
+       return (new JobOrderExport(resource_path('excel/FR-MNT-003-000-005.xlsx')))
+            ->download($filters, 'job-order-history-' . now()->format('Ymd-His') . '.xlsx');
     }
 
 
@@ -422,14 +421,14 @@ class RecordController extends Controller
     }
 
     /** แบบเดิม (สร้าง PDF จาก resources/views/pdf/job-order.blade.php) เก็บไว้เผื่อใช้ */
-    public function printLegacy(int $id)
-    {
-        $data = $this->loadJobOrderForPrint($id);
+    // public function printLegacy(int $id)
+    // {
+    //     $data = $this->loadJobOrderForPrint($id);
 
-        $pdf = Pdf::loadView('pdf.job-order', $data)->setPaper('a4', 'portrait');
+    //     $pdf = Pdf::loadView('pdf.job-order', $data)->setPaper('a4', 'portrait');
 
-        return $pdf->stream('job-order-' . str_replace('/', '-', $data['jobOrderNo']) . '.pdf');
-    }
+    //     return $pdf->stream('job-order-' . str_replace('/', '-', $data['jobOrderNo']) . '.pdf');
+    // }
 
     private function loadJobOrderForPrint(int $id): array
     {
