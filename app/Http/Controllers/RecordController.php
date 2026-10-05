@@ -8,6 +8,7 @@ use Inertia\Inertia;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Exports\JobOrderHomeExport;
 use App\Queries\JobOrderHomeQuery;
+use App\Pdf\JobOrderFormPdf;
 use Maatwebsite\Excel\Facades\Excel;
 
 class RecordController extends Controller
@@ -388,7 +389,40 @@ class RecordController extends Controller
         ->route('record-tool', $jobOrder->id_tool)
         ->with('success', 'บันทึกข้อมูลเรียบร้อยแล้ว');
     }
+
+    /**
+     * พิมพ์ใบสั่งงานลงบนแบบฟอร์มจริง FR-MNT-003-000-004 (resources/pdf/FR-MNT-003-000-004.pdf)
+     */
     public function print(int $id)
+    {
+        $data = $this->loadJobOrderForPrint($id);
+
+        $renderer = new JobOrderFormPdf(
+            templatePath: resource_path('pdf/FR-MNT-003-000-004.pdf'),
+            fontRegular: JobOrderFormPdf::firstExisting([
+                resource_path('fonts/Sarabun-Regular.ttf'),
+                public_path('fonts/Sarabun-Regular.ttf'),
+                storage_path('fonts/sarabun_normal_*.ttf'),
+            ]),
+            fontBold: JobOrderFormPdf::firstExisting([
+                resource_path('fonts/Sarabun-Bold.ttf'),
+                public_path('fonts/Sarabun-Bold.ttf'),
+                storage_path('fonts/sarabun_bold_*.ttf'),
+            ]),
+            fontCacheDir: storage_path('app/tcpdf-fonts'),
+            checkImage: public_path('images/check-mark.png'),
+        );
+
+        $filename = 'job-order-' . str_replace('/', '-', $data['jobOrderNo']) . '.pdf';
+
+        return response($renderer->render($data), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
+        ]);
+    }
+
+    /** แบบเดิม (สร้าง PDF จาก resources/views/pdf/job-order.blade.php) เก็บไว้เผื่อใช้ */
+    public function printLegacy(int $id)
     {
         $data = $this->loadJobOrderForPrint($id);
 

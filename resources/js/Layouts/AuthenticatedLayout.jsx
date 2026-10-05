@@ -37,7 +37,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                         href={route('user-permissions.index')}
                                         active={route().current('user-permissions.index')}
                                     >
-                                        Setting
+                                        Permission
                                     </NavLink>
                                 )}
                                 {!isReadOnly && (
@@ -177,7 +177,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                 href={route('user-permissions.index')}
                                 active={route().current('user-permissions.index')}
                             >
-                                Setting
+                                Premission
                             </ResponsiveNavLink>
                         )}
                         {!isReadOnly && (
