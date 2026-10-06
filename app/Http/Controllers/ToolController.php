@@ -9,9 +9,35 @@ use Inertia\Inertia;
 use App\Imports\ToolsImport;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\QueryException;
+use Illuminate\Validation\ValidationException;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Reader\Csv;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
 class ToolController extends Controller
 {
+     private const IMPORT_MAP = [
+        0 => 'asset',         // A Tag Number (ใช้จับคู่)
+        1 => 'name',          // B Description
+        2 => 'brand',         // C Brand
+        3 => 'model',         // D Model
+        4 => 'serial',        // E Serial
+        5 => 'employee',      // F Employee
+        6 => 'project_site',  // G Project Site
+        7 => 'asset_status',  // H Asset Status
+        8 => 'asset_in',      // I Asset In
+        9 => 'tran_date',     // J Transfer Date
+    ];
+
+    private const IMPORT_START_ROW = 5;
+
+    /**
+     * excel.php เดิมเขียนทับทุกช่อง (ช่องว่างในไฟล์ = ล้างค่าเดิม)
+     * false = ช่องที่ว่างในไฟล์ไม่ไปลบค่าที่มีอยู่ในระบบ
+     */
+    private const IMPORT_OVERWRITE_WITH_BLANK = false;
+
     public function index(Request $request)
     {
         $search = $request->input('search');
@@ -126,12 +152,207 @@ class ToolController extends Controller
         abort_if(auth()->user()->permission5 == '1', 403, 'คุณไม่มีสิทธิ์เพิ่มข้อมูล');
 
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls,csv|max:10240',
+            'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
+        ], [
+            'file.required' => 'กรุณาเลือกไฟล์',
+            'file.file'     => 'อัปโหลดไฟล์ไม่สำเร็จ',
+            'file.mimes'    => 'รองรับเฉพาะไฟล์ .xls, .xlsx หรือ .csv',
+            'file.max'      => 'ไฟล์ใหญ่เกิน 10 MB',
         ]);
 
-        Excel::import(new ToolsImport, $request->file('file'));
+        try {
+            $rows = $this->importReadRows($request->file('file'));
+        } catch (\Throwable $e) {
+            report($e);
+            throw ValidationException::withMessages([
+                'file' => 'อ่านไฟล์ไม่ได้ ไฟล์อาจเสียหายหรือไม่ใช่ไฟล์ Excel'
+                    . (config('app.debug') ? ' (' . $e->getMessage() . ')' : ''),
+            ]);
+        }
 
-        return redirect()->route('machine-list')->with('success', 'Import ข้อมูลสำเร็จ');
+        $start = $this->importStartIndex($rows);
+
+        // ---------- แปลงแถวในไฟล์ ----------
+        $records = [];   // asset => ['data' => [...], 'line' => เลขแถวใน Excel]
+        $skipped = [];
+        for ($i = $start, $n = count($rows); $i < $n; $i++) {
+            $line = $i + 1;
+            $data = $this->importMapRow($rows[$i] ?? []);
+
+            if ($data['asset'] === '') {
+                if ($this->importHasValue($data)) {
+                    $skipped[] = "แถว {$line}: ไม่มี Tag Number";
+                }
+                continue; // แถวว่างทั้งแถว ข้ามเงียบ ๆ
+            }
+            if (isset($records[$data['asset']])) {
+                $skipped[] = "แถว {$records[$data['asset']]['line']}: Tag Number {$data['asset']} ซ้ำกับแถว {$line} (ใช้แถว {$line})";
+            }
+            $records[$data['asset']] = ['data' => $data, 'line' => $line];
+        }
+
+        if (!$records) {
+            throw ValidationException::withMessages([
+                'file' => 'ไม่พบข้อมูลในไฟล์ — ข้อมูลต้องอยู่ใน Sheet แรก เริ่มแถว ' . self::IMPORT_START_ROW . ' และคอลัมน์ A เป็น Tag Number',
+            ]);
+        }
+
+        $model = new Tool;
+        $table = $model->getTable();
+        $stamp = $model->usesTimestamps();
+
+        // asset ที่มีอยู่แล้ว — query ครั้งเดียว ไม่ query ทีละแถวแบบเดิม
+        $existing = collect(array_keys($records))
+            ->chunk(1000)
+            ->flatMap(fn ($chunk) => DB::table($table)->whereIn('asset', $chunk->all())->pluck('asset'))
+            ->flip();
+
+        // ---------- บันทึก: ทั้งไฟล์สำเร็จ หรือไม่บันทึกเลย ----------
+        $created = 0;
+        $updated = 0;
+        $currentLine = null;
+
+        try {
+            DB::transaction(function () use ($records, $existing, $table, $stamp, &$created, &$updated, &$currentLine) {
+                $now = now();
+
+                foreach ($records as $asset => $r) {
+                    $currentLine = $r['line'];
+                    $data = $r['data'];
+
+                    if (isset($existing[$asset])) {
+                        $set = self::IMPORT_OVERWRITE_WITH_BLANK
+                            ? $data
+                            : array_filter($data, fn ($v) => $v !== '' && $v !== null);
+                        unset($set['asset']);
+
+                        if ($set) {
+                            if ($stamp) {
+                                $set['updated_at'] = $now;
+                            }
+                            DB::table($table)->where('asset', $asset)->update($set);
+                        }
+                        $updated++;
+                    } else {
+                        // io_no เป็นช่องบังคับในฟอร์ม แต่ไม่มีในไฟล์ RITTA → ใส่ค่าว่างไว้ก่อน แก้ทีหลังในหน้า Edit
+                        $insert = $data + ['io_no' => '', 'io_no2' => ''];
+                        if ($stamp) {
+                            $insert['created_at'] = $now;
+                            $insert['updated_at'] = $now;
+                        }
+                        DB::table($table)->insert($insert);
+                        $created++;
+                    }
+                }
+            });
+        } catch (QueryException $e) {
+            report($e);
+            throw ValidationException::withMessages([
+                'file' => "บันทึกไม่สำเร็จที่แถว {$currentLine} ของไฟล์ — ยังไม่มีข้อมูลใดถูกบันทึก ({$e->errorInfo[2]})",
+            ]);
+        }
+
+        return back()
+            ->with('success', "Import ข้อมูลสำเร็จ เพิ่มใหม่ {$created} รายการ อัปเดต {$updated} รายการ")
+            ->with('importResult', [
+                'total'   => count($records),
+                'created' => $created,
+                'updated' => $updated,
+                'skipped' => $skipped,
+            ]);
+    }
+
+    /**
+     * อ่าน Sheet แรกด้วย PhpSpreadsheet โดยตรง (ติดตั้งมากับ Laravel Excel อยู่แล้ว)
+     * ดูชนิดไฟล์จากเนื้อไฟล์ก่อน ไม่ได้ค่อยดูจากนามสกุล — ค่าที่ได้เป็นค่าดิบ (วันที่ = ตัวเลข Excel)
+     */
+    private function importReadRows(\Illuminate\Http\UploadedFile $file): array
+    {
+        $path = $file->getRealPath();
+
+        try {
+            $type = IOFactory::identify($path);
+        } catch (\Throwable $e) {
+            $type = match (strtolower($file->getClientOriginalExtension())) {
+                'xlsx'  => 'Xlsx',
+                'xls'   => 'Xls',
+                default => 'Csv',
+            };
+        }
+
+        $reader = IOFactory::createReader($type);
+        $reader->setReadDataOnly(true);
+        if ($reader instanceof Csv) {
+            // CSV จากระบบ Windows ภาษาไทยมักเป็น CP874 (ถ้ามี BOM UTF-8 จะอ่านเป็น UTF-8 เอง)
+            $reader->setInputEncoding(Csv::GUESS_ENCODING);
+            $reader->setFallbackEncoding('CP874');
+        }
+
+        return $reader->load($path)->getSheet(0)->toArray(null, false, false, false);
+    }
+
+    /** หาแถวหัวคอลัมน์ "Tag Number" ใน 15 แถวแรก ข้อมูลเริ่มแถวถัดไป ไม่เจอใช้แถว 5 */
+    private function importStartIndex(array $rows): int
+    {
+        foreach (array_slice($rows, 0, 15, true) as $i => $row) {
+            $a = strtolower(trim((string) ($row[0] ?? '')));
+            if (in_array($a, ['tag number', 'tag no', 'tag no.', 'asset'], true)) {
+                return $i + 1;
+            }
+        }
+        return self::IMPORT_START_ROW - 1;
+    }
+
+    private function importMapRow(array $row): array
+    {
+        $out = [];
+        foreach (self::IMPORT_MAP as $col => $field) {
+            $value = $row[$col] ?? null;
+            $out[$field] = $field === 'tran_date' ? $this->importDate($value) : $this->importText($value);
+        }
+        return $out;
+    }
+
+    private function importHasValue(array $data): bool
+    {
+        foreach ($data as $v) {
+            if ($v !== '' && $v !== null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** ตัวเลขจาก Excel เช่น Serial 853275.0 → "853275" */
+    private function importText($v): string
+    {
+        if ($v === null) {
+            return '';
+        }
+        if ((is_float($v) || is_int($v)) && floor($v) == $v && abs($v) < 1e15) {
+            return (string) (int) $v;
+        }
+        return trim((string) $v);
+    }
+
+    /** Transfer Date: เลขวันที่ของ Excel (42142.47) หรือข้อความวันที่ → "YYYY-MM-DD" */
+    private function importDate($v): ?string
+    {
+        if ($v === null || $v === '') {
+            return null;
+        }
+        if (is_numeric($v)) {
+            return ExcelDate::excelToDateTimeObject((float) $v)->format('Y-m-d');
+        }
+
+        $s = trim((string) $v);
+        foreach (['Y-m-d H:i:s', 'Y-m-d', 'd/m/Y H:i:s', 'd/m/Y H:i', 'd/m/Y', 'd-m-Y', 'd-M-Y'] as $format) {
+            $d = \DateTime::createFromFormat('!' . $format, $s);
+            if ($d && $d->format($format) === $s) {
+                return $d->format('Y-m-d');
+            }
+        }
+        return null;
     }
 
     public function show(Tool $tool)
@@ -246,7 +467,8 @@ class ToolController extends Controller
             'time_work' => $validated['hour_meter'] ?? null,
             'cause' => $validated['damage_description'] ?? null,
             'name2' => $validated['reporter_name'] ?? null,
-            'repair' => $validated['comment'] ?? null,
+            // 'repair' => $validated['comment'] ?? null,
+            'des1' => $validated['comment'] ?? null,
             'status1' => $jobTypeMap[$validated['job_type']],
             'status2' => $validated['repair_mode'] === 'outsource' ? 0 : 1,
             'pm' => $validated['approver_name'] ?? null,

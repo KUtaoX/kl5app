@@ -9,7 +9,7 @@ export default function GuestLayout({ children }) {
 
             <div>
                 <Link href="/">
-                    <ApplicationLogo className="h-20 w-20 fill-current text-gray-500" />
+                    <ApplicationLogo className="h-auto w-80 fill-current text-gray-500" />
                 </Link>
             </div>
 
