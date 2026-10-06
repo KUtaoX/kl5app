@@ -109,10 +109,11 @@ class MaintenanceController extends Controller
 
         $rows = DB::table('PROFILES as p')
             // เฉพาะพนักงานที่ยังทำงานอยู่ (STATUS = N) และยังไม่ถึงวันที่ออกงาน
-            ->where('p.STATUS', 'N')
-            ->where(fn ($w) => $w->whereNull('p.ENDDATE')
-                ->orWhere('p.ENDDATE', '<', '1971-01-01')
-                ->orWhere('p.ENDDATE', '>=', now()->toDateString()))
+             ->where(fn ($w) => $w
+                ->where('p.STATUS', 'N')
+                ->orWhere(fn ($r) => $r
+                    ->where('p.STATUS', 'R')
+                    ->where(fn ($d) => $d->whereNull('p.ENDDATE')->orWhere('p.ENDDATE', '<', '1971-01-01'))))
             ->where(fn ($w) => $w
                 ->whereRaw("{$fullTh} LIKE ?", [$like])
                 ->orWhereRaw("{$fullEn} LIKE ?", [$like])
@@ -123,7 +124,7 @@ class MaintenanceController extends Controller
             ->orderBy('p.NAME_TH')
             ->limit(10)
             ->get();
-
+ 
         return response()->json($rows->map(fn ($r) => [
             'id'       => $r->STAFF_ID,
             'name'     => trim(trim((string) $r->NAME_TH) . ' ' . trim((string) $r->SURNAME_TH)) ?: trim($r->NAME . ' ' . $r->SURNAME),

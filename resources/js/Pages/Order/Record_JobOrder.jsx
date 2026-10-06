@@ -713,6 +713,18 @@ export default function Record({ tool, jobOrder, editable = false }) {
                                 {errors.file_job && <p className="text-xs text-red-500">{errors.file_job}</p>}
                             </div>
 
+                            {/* แสดง error ทุกช่อง (บางช่อง เช่น ราคาอะไหล่ หรือไฟล์แต่ละไฟล์ ไม่มีที่แสดง error ของตัวเอง) */}
+                            {Object.keys(errors).length > 0 && (
+                                <div className="mx-6 mt-2 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700 ring-1 ring-rose-200">
+                                    <p className="font-semibold">บันทึกไม่สำเร็จ กรุณาแก้ไขข้อมูลต่อไปนี้</p>
+                                    <ul className="mt-1 list-disc space-y-0.5 pl-5">
+                                        {Object.entries(errors).map(([key, message]) => (
+                                            <li key={key}>{message}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
                             <div className="flex items-center justify-center gap-3 border-t border-gray-100 px-6 py-6">
                                 <button
                                     type="submit"

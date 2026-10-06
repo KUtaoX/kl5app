@@ -91,6 +91,82 @@ class RecordController extends Controller
         ]);
     }
 
+    public function jobOrderHomePrint(Request $request)
+    {
+        $filters = JobOrderHomeQuery::filters($request);
+
+        // query เดียวกับหน้าจอ → ใบงาน ลำดับ เลข Job Order และประเภทงาน ตรงกับที่เห็นบนจอ
+        $list = JobOrderHomeQuery::build($filters)->get()
+            ->map(fn ($r) => JobOrderHomeQuery::row($r));
+
+        $ids = $list->map(fn ($r) => data_get($r, 'id'))->filter()->values();
+
+        // รายละเอียดที่หน้าจอไม่ได้แสดง (แบ่งชุดละ 1000 กัน placeholder เกิน)
+        $details = $ids->chunk(1000)
+            ->flatMap(fn ($chunk) => DB::table('job_order as j')
+                ->leftJoin('tool as t', 't.id', '=', 'j.id_tool')
+                // ชนิดเครื่องจักร จาก 7 ตัวแรกของ asset (เหมือน print2.php)
+                ->leftJoin('code as c', fn ($join) => $join->on(DB::raw('LEFT(t.asset, 7)'), '=', 'c.code'))
+                ->whereIn('j.id', $chunk->all())
+                ->get([
+                    'j.id', 'j.date_fr', 'j.date1', 'j.date2', 'j.time_work',
+                    'j.cause', 'j.repair', 'j.name2', 'j.pm', 'c.name as machine_type',
+                ]))
+            ->keyBy('id');
+
+        $parts = $ids->chunk(1000)
+            ->flatMap(fn ($chunk) => DB::table('job_order_sub')
+                ->whereIn('job_id', $chunk->all())
+                ->orderBy('id')
+                ->get(['job_id', 'list1', 'num1', 'po1', 'price1']))
+            ->groupBy('job_id');
+
+        $rows = $list->map(function ($r) use ($details, $parts) {
+            $id = data_get($r, 'id');
+            $d  = $details[$id] ?? null;
+
+            $items = collect($parts[$id] ?? [])->map(fn ($p) => [
+                'item'  => trim($p->list1 . ' ' . $p->num1),
+                'price' => (float) str_replace(',', '', (string) $p->price1),
+                'po'    => $p->po1,
+            ])->values();
+
+            return [
+                'id'           => $id,
+                'date_fr'      => self::dmy($d?->date_fr),
+                'job_order'    => data_get($r, 'job_order'),
+                'machine_type' => $d?->machine_type,
+                'asset'        => data_get($r, 'code'),
+                'site'         => data_get($r, 'site'),
+                'status'       => data_get($r, 'type'),
+                'cancel'       => (bool) data_get($r, 'cancel'),
+                'date1'        => self::dmy($d?->date1),
+                'date2'        => self::dmy($d?->date2),
+                'time_work'    => $d?->time_work,
+                'cause'        => $d?->cause,
+                'repair'       => $d?->repair,
+                'parts'        => $items,
+                'total'        => $items->sum('price'),
+                // print2.php ใช้ name2 (ผู้รับแจ้ง/ผู้จัดทำ) — ถ้าต้องการผู้รับผิดชอบจริง เปลี่ยนเป็น name1
+                'responsible'  => $d?->name2,
+                'pm'           => $d?->pm,
+            ];
+        })->values();
+
+        return Inertia::render('Order/Job_Order_Print', [
+            'rows'      => $rows,
+            'printedAt' => now()->format('d-m-Y H:i'),
+        ]);
+    }
+
+    private static function dmy(?string $date): string
+    {
+        if (!$date || str_starts_with($date, '0000')) {
+            return '';
+        }
+        return date('d-m-Y', strtotime($date));
+    }
+
     public function cancelSave(Request $request, int $id)
     {
         $jobOrder = DB::table('job_order')->where('id', $id)->first();
@@ -214,6 +290,28 @@ class RecordController extends Controller
         $jobOrder = DB::table('job_order')->where('id', $id)->first();
         abort_if(!$jobOrder, 404, 'ไม่พบใบสั่งงานนี้');
 
+        // ราคาจากข้อมูลเดิมบางแถวมีจุลภาค เช่น "1,490.50" ตัดออกก่อนตรวจ ไม่อย่างนั้นจะไม่ผ่าน numeric
+        if (is_array($request->input('price1'))) {
+            $request->merge([
+                'price1' => array_map(
+                    fn ($p) => is_string($p) ? str_replace([',', ' '], '', trim($p)) : $p,
+                    $request->input('price1')
+                ),
+            ]);
+        }
+
+        // แนบรวมเกินจำนวนที่กำหนด แจ้งให้ผู้ใช้รู้ แทนการตัดไฟล์ทิ้งเงียบ ๆ
+        if ($request->hasFile('file_job')) {
+            $existing = DB::table('job_order_file')->where('id_job', $jobOrder->id)->count();
+            $incoming = count($request->file('file_job'));
+            if ($existing + $incoming > self::MAX_DOC_COUNT) {
+                $left = max(self::MAX_DOC_COUNT - $existing, 0);
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'file_job' => "ใบสั่งงานนี้มีไฟล์แนบอยู่แล้ว {$existing} ไฟล์ แนบเพิ่มได้อีก {$left} ไฟล์ (รวมไม่เกิน " . self::MAX_DOC_COUNT . ' ไฟล์)',
+                ]);
+            }
+        }
+
         $data = $request->validate([
             // ส่วนบน (Job Order เดิม) — ไม่บังคับ เพราะโหมด Record จะไม่ได้ถูกแก้ แต่ยังส่งค่าเดิมมาด้วย
             'job_type'           => 'nullable|in:urgent,maintenance,install,audit,internal',
@@ -262,6 +360,12 @@ class RecordController extends Controller
             'name_pm2'       => 'nullable|string|max:255',
             'file_job'       => 'nullable|array|max:' . self::MAX_DOC_COUNT,
             'file_job.*'     => 'file|max:5120|mimes:' . implode(',', self::ALLOWED_DOC_EXT), // max:5120 = 5MB
+        ], [
+            'price1.*.numeric' => 'ราคาอะไหล่แถวที่ :position ต้องเป็นตัวเลข',
+            'file_job.*.mimes' => 'ไฟล์แนบที่ :position ต้องเป็นไฟล์ :values',
+            'file_job.*.max'   => 'ไฟล์แนบที่ :position ใหญ่เกิน 5 MB',
+            'file_job.*.file'  => 'ไฟล์แนบที่ :position อัปโหลดไม่สำเร็จ',
+            '*.date'           => 'วันที่ในช่อง :attribute ไม่ถูกต้อง',
         ]);
 
         DB::transaction(function () use ($request, $data, $jobOrder) {

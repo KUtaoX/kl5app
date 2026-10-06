@@ -162,16 +162,17 @@ export default function Job_Order_Home({ jobs, filters, jobTypes, groups }) {
                             </button>
 
                             <div className="ms-auto flex gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => window.print()}
+                               <a
+                                    href={route('job-order-home.print', cleanQuery(filters))}
+                                    target="_blank"
+                                    rel="noopener"
                                     className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
                                 >
                                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 9V3h12v6M6 18H4a1 1 0 01-1-1v-6a2 2 0 012-2h14a2 2 0 012 2v6a1 1 0 01-1 1h-2M6 14h12v7H6z" />
                                     </svg>
                                     Print
-                                </button>
+                                </a>
 
                                 {/* <a> ธรรมดา เพราะเป็นการดาวน์โหลดไฟล์ ไม่ใช่ Inertia visit */}
                                 <a

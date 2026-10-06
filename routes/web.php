@@ -48,11 +48,11 @@ Route ::middleware('auth')->group(function () {
     Route::post('/record/{id}', [RecordController::class, 'store']);
     Route::get('/record/{id}/edit', [RecordController::class, 'edit']);
     Route::get('/record/{id}/cancel', [RecordController::class, 'cancel'])->name('record.cancel');
-    // Route::put('/record/{id}/cancel', [RecordController::class, 'cancel'])->name('record.cancel');
     Route::put('/record/{id}/cancel', [RecordController::class, 'cancelSave'])->name('record.cancel');
     Route::get('/record/{id}/print', [RecordController::class, 'print'])->name('record.print');
     Route ::get('/job-order-home',[RecordController::class, 'jobOrderHome'])->name('job-order-home');
     Route::get('/job-order-home/export', [RecordController::class, 'jobOrderHomeExport'])->name('job-order-home.export');
+    Route::get('/job-order-home/print', [RecordController::class, 'jobOrderHomePrint'])->name('job-order-home.print');
     Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maintenance');
     Route::post('/maintenance', [MaintenanceController::class, 'store'])->name('maintenance.store');
     Route::patch('/maintenance/{id}', [MaintenanceController::class, 'update'])->whereNumber('id')->name('maintenance.update');
