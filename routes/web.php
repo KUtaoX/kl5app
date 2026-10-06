@@ -69,6 +69,8 @@ Route::middleware('auth', 'permission:permission1')->group(function () {
 Route::middleware('auth', 'readonly.block')->group(function () {
     Route::get('/job-order-types', [JobOrderTypeController::class, 'index'])->name('job-order-types.index');
     Route::post('/job-order-types', [JobOrderTypeController::class, 'store'])->name('job-order-types.store');
+    Route::patch('/job-order-types/{jobOrderType}/type', [JobOrderTypeController::class, 'updateType'])->name('job-order-types.update-type');
+    Route::patch('/job-order-types/{jobOrderType}', [JobOrderTypeController::class, 'update'])->name('job-order-types.update');
     Route::delete('/job-order-types/{jobOrderType}', [JobOrderTypeController::class, 'destroy'])->name('job-order-types.destroy');
 });
 

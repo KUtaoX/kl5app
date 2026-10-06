@@ -64,6 +64,22 @@ return [
             ]) : [],
         ],
 
+        'profiles' => [
+            'driver' => 'mysql',
+            'host' => env('PROFILES_DB_HOST') ?: env('DB_HOST', '127.0.0.1'),
+            'port' => env('PROFILES_DB_PORT') ?: env('DB_PORT', '3306'),
+            'database' => env('PROFILES_DB_DATABASE') ?: env('DB_DATABASE', 'laravel'),
+            'username' => env('PROFILES_DB_USERNAME') ?: env('DB_USERNAME', 'root'),
+            'password' => env('PROFILES_DB_PASSWORD') ?: env('DB_PASSWORD', ''),
+            'unix_socket' => env('PROFILES_DB_SOCKET', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),

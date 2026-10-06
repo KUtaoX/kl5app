@@ -1,32 +1,137 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, useForm, router } from '@inertiajs/react';
-
-const TYPE_LABELS = { 0: 'MT', 1: 'TEMP', 2: 'LGT' };
+import { Head, useForm, router, usePage } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
 
 const TYPE_OPTIONS = [
-    { value: 0, label: 'MT' },
-    { value: 1, label: 'TEMP' },
-    { value: 2, label: 'LGT' },
+    { value: 0, label: 'MT', active: 'bg-[#F4AE52] text-white' },
+    { value: 1, label: 'TEMP', active: 'bg-[#D4621A] text-white' },
+    { value: 2, label: 'LGT', active: 'bg-[#2A1A0E] text-white' },
 ];
 
-const TYPE_BADGE = {
-    0: 'bg-emerald-100 text-emerald-700', // MT
-    1: 'bg-amber-100 text-amber-700',     // TEMP
-    2: 'bg-rose-100 text-rose-700',       // LGT
-};
-export default function JobOrderType({ items }) {
-    // const importForm = useForm({ file: null });
-    const createForm = useForm({ name: '', code: '', type_code: 0 });
-    // const canDelete = usePage().props.auth.user.permission4 === '1';
+/**
+ * ช่องชื่อที่พิมพ์แก้ได้ในตาราง
+ * บันทึกเมื่อกด Enter หรือคลิกออกจากช่อง, กด Esc เพื่อยกเลิก
+ */
+function EditableName({ item, canEdit, onSaved, onError }) {
+    const [value, setValue] = useState(item.name ?? '');
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
 
-    // function handleImport(e) {
-    //     e.preventDefault();
-    //     importForm.post(route('job-order-types.import'), {
-    //         forceFormData: true,
-    //         preserveScroll: true,
-    //         onSuccess: () => importForm.reset('file'),
-    //     });
-    // }
+    // ข้อมูลจาก server เปลี่ยน (เช่น บันทึกเสร็จ หรือหน้าโหลดใหม่) ให้ช่องแสดงค่าล่าสุด
+    useEffect(() => {
+        setValue(item.name ?? '');
+    }, [item.name]);
+
+    if (!canEdit) return <span className="text-gray-900">{item.name}</span>;
+
+    const save = () => {
+        const name = value.trim();
+        if (name === (item.name ?? '').trim()) {
+            setValue(item.name ?? '');
+            setError('');
+            return;
+        }
+        if (!name) {
+            setError('กรุณาใส่ชื่อ');
+            return;
+        }
+        setSaving(true);
+        router.patch(
+            route('job-order-types.update', item.id),
+            { name },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onSuccess: () => {
+                    setError('');
+                    onSaved(`บันทึกชื่อ ${item.code} แล้ว`);
+                },
+                onError: (errors) => {
+                    setError(errors.name || 'บันทึกไม่สำเร็จ');
+                    onError();
+                },
+                onFinish: () => setSaving(false),
+            },
+        );
+    };
+
+    return (
+        <div>
+            <input
+                type="text"
+                value={value}
+                disabled={saving}
+                onChange={(e) => {
+                    setValue(e.target.value);
+                    setError('');
+                }}
+                onBlur={save}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        e.currentTarget.blur(); // บันทึกผ่าน onBlur
+                    } else if (e.key === 'Escape') {
+                        setValue(item.name ?? '');
+                        setError('');
+                        e.currentTarget.blur();
+                    }
+                }}
+                aria-label={`ชื่อของ ${item.code}`}
+                title="พิมพ์แก้แล้วกด Enter เพื่อบันทึก"
+                className={`w-full rounded-md border px-2 py-1 text-sm text-gray-900 transition focus:outline-none focus:ring-1 disabled:opacity-60 ${
+                    error
+                        ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500'
+                        : 'border-transparent bg-transparent hover:border-gray-300 focus:border-indigo-500 focus:bg-white focus:ring-indigo-500'
+                }`}
+            />
+            {error && <p className="mt-1 text-xs text-rose-600">{error}</p>}
+        </div>
+    );
+}
+
+/**
+ * ปุ่มสลับ MT / TEMP / LGT
+ * disabled = แสดงค่าอย่างเดียว กดไม่ได้
+ */
+function TypeToggle({ value, onChange, disabled = false, saving = false, label = 'ประเภท' }) {
+    return (
+        <div
+            role="radiogroup"
+            aria-label={label}
+            className={`inline-flex rounded-lg bg-gray-100 p-0.5 ${saving ? 'opacity-60' : ''}`}
+        >
+            {TYPE_OPTIONS.map((opt) => {
+                const active = Number(value) === opt.value;
+                return (
+                    <button
+                        key={opt.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        disabled={disabled || saving}
+                        onClick={() => !active && onChange(opt.value)}
+                        className={`min-w-[3.25rem] rounded-md px-3 py-1 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-default ${
+                            active
+                                ? `${opt.active} shadow-sm`
+                                : `text-gray-500 ${disabled ? '' : 'hover:bg-gray-200 hover:text-gray-800'}`
+                        }`}
+                    >
+                        {opt.label}
+                    </button>
+                );
+            })}
+        </div>
+    );
+}
+
+export default function JobOrderType({ items }) {
+    const user = usePage().props.auth.user;
+    // แก้ประเภทได้ต้องมีสิทธิ์ Can Edit และไม่เป็น Read Only (Admin ได้อัตโนมัติ)
+    const canEdit = user.permission3 === '1' && user.permission5 !== '1';
+
+    const createForm = useForm({ name: '', code: '', type_code: 0 });
+    const [savingId, setSavingId] = useState(null);
+    const [toast, setToast] = useState('');
 
     function handleCreate(e) {
         e.preventDefault();
@@ -34,6 +139,33 @@ export default function JobOrderType({ items }) {
             preserveScroll: true,
             onSuccess: () => createForm.reset('name', 'code', 'type_code'),
         });
+    }
+
+    function showToast(message) {
+        setToast(message);
+        setTimeout(() => setToast(''), 2500);
+    }
+
+    function handleChangeType(item, typeCode) {
+        setSavingId(item.id);
+        router.patch(
+            route('job-order-types.update-type', item.id),
+            { type_code: typeCode },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onSuccess: () => {
+                    const label = TYPE_OPTIONS.find((o) => o.value === typeCode)?.label;
+                    setToast(`เปลี่ยน ${item.code} เป็น ${label} แล้ว`);
+                    setTimeout(() => setToast(''), 2500);
+                },
+                onError: () => {
+                    setToast('เปลี่ยนประเภทไม่สำเร็จ');
+                    setTimeout(() => setToast(''), 2500);
+                },
+                onFinish: () => setSavingId(null),
+            },
+        );
     }
 
     function handleDelete(item) {
@@ -52,32 +184,7 @@ export default function JobOrderType({ items }) {
             <Head title="Job Order Type" />
 
             <div className="py-8">
-                <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 space-y-6">
-
-                    {/* Upload section */}
-                    {/* <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
-                        <form onSubmit={handleImport} className="p-6">
-                            <h3 className="text-sm font-semibold text-gray-700">Upload Tool File</h3>
-                            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-                                <input
-                                    type="file"
-                                    accept=".xlsx,.xls,.csv"
-                                    onChange={(e) => importForm.setData('file', e.target.files[0] ?? null)}
-                                    className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-indigo-700 hover:file:bg-indigo-100"
-                                />
-                                <button
-                                    type="submit"
-                                    disabled={!importForm.data.file || importForm.processing}
-                                    className="shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                    {importForm.processing ? 'กำลัง Upload...' : 'Upload'}
-                                </button>
-                            </div>
-                            {importForm.errors.file && (
-                                <p className="mt-2 text-xs text-red-500">{importForm.errors.file}</p>
-                            )}
-                        </form>
-                    </div> */}
+                <div className="mx-auto max-w-3xl space-y-6 px-4 sm:px-6 lg:px-8">
 
                     {/* New List form */}
                     <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
@@ -99,21 +206,11 @@ export default function JobOrderType({ items }) {
                                 onChange={(e) => createForm.setData('code', e.target.value)}
                                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:w-1/3"
                             />
-                            <div className="flex items-center gap-4">
-                                {TYPE_OPTIONS.map((opt) => (
-                                    <label key={opt.value} className="flex items-center gap-1.5 text-sm text-gray-700">
-                                        <input
-                                            type="radio"
-                                            name="type_code"
-                                            value={opt.value}
-                                            checked={createForm.data.type_code === opt.value}
-                                            onChange={() => createForm.setData('type_code', opt.value)}
-                                            className="text-indigo-600 focus:ring-indigo-500"
-                                        />
-                                        {opt.label}
-                                    </label>
-                                ))}
-                            </div>
+                            <TypeToggle
+                                label="ประเภทของรายการใหม่"
+                                value={createForm.data.type_code}
+                                onChange={(v) => createForm.setData('type_code', v)}
+                            />
                             <button
                                 type="submit"
                                 disabled={createForm.processing}
@@ -133,6 +230,12 @@ export default function JobOrderType({ items }) {
                     <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
                         <div className="border-b border-gray-200 px-6 py-3">
                             <h3 className="text-sm font-semibold text-gray-700">รายการประเภทงานบำรุงรักษา (Job Order Type)</h3>
+                            {canEdit && (
+                                <p className="mt-0.5 text-xs text-gray-500">
+                                    คลิกที่ชื่อเพื่อพิมพ์แก้ (กด Enter บันทึก, Esc ยกเลิก) และกด MT / TEMP / LGT เพื่อเปลี่ยนประเภท
+                                    ประเภทมีผลกับใบสั่งงานที่สร้างใหม่ ใบสั่งงานเดิมไม่เปลี่ยน
+                                </p>
+                            )}
                         </div>
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200 text-sm">
@@ -147,16 +250,28 @@ export default function JobOrderType({ items }) {
                                 <tbody className="divide-y divide-gray-100">
                                     {items.map((item) => (
                                         <tr key={item.id} className="transition hover:bg-gray-50">
-                                            <td className="px-4 py-3 text-gray-900">{item.name}</td>
+                                            <td className="px-2 py-2">
+                                                <EditableName
+                                                    item={item}
+                                                    canEdit={canEdit}
+                                                    onSaved={showToast}
+                                                    onError={() => {}}
+                                                />
+                                            </td>
                                             <td className="px-4 py-3 font-mono text-xs text-gray-500">{item.code}</td>
                                             <td className="px-4 py-3 text-center">
-                                                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${TYPE_BADGE[item.type_code] ?? 'bg-gray-100 text-gray-600'}`}>
-                                                    {TYPE_LABELS[item.type_code] ?? item.type_code}
-                                                </span>
+                                                <TypeToggle
+                                                    label={`ประเภทของ ${item.code}`}
+                                                    value={item.type_code}
+                                                    disabled={!canEdit}
+                                                    saving={savingId === item.id}
+                                                    onChange={(v) => handleChangeType(item, v)}
+                                                />
                                             </td>
-                                            
+
                                             <td className="px-4 py-3 text-right">
                                                 <button
+                                                    type="button"
                                                     onClick={() => handleDelete(item)}
                                                     className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-red-700"
                                                 >
@@ -180,6 +295,12 @@ export default function JobOrderType({ items }) {
 
                 </div>
             </div>
+
+            {toast && (
+                <div role="status" className="fixed bottom-6 right-6 z-50 rounded-lg bg-gray-900 px-4 py-3 text-sm font-medium text-white shadow-lg dark:bg-gray-100">
+                    {toast}
+                </div>
+            )}
         </AuthenticatedLayout>
     );
 }

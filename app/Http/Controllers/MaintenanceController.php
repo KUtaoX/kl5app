@@ -107,7 +107,8 @@ class MaintenanceController extends Controller
         $fullTh = "REPLACE(CONCAT(COALESCE(p.NAME_TH, ''), COALESCE(p.SURNAME_TH, '')), ' ', '')";
         $fullEn = "REPLACE(CONCAT(COALESCE(p.NAME, ''), COALESCE(p.SURNAME, '')), ' ', '')";
 
-        $rows = DB::table('PROFILES as p')
+        // อ่านจากฐานข้อมูลพนักงาน (connection 'profiles' ใน config/database.php)
+        $rows = DB::connection('profiles')->table('PROFILES as p')
             // เฉพาะพนักงานที่ยังทำงานอยู่ (STATUS = N) และยังไม่ถึงวันที่ออกงาน
              ->where(fn ($w) => $w
                 ->where('p.STATUS', 'N')
