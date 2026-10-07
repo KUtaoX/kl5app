@@ -48,6 +48,13 @@ class RecordController extends Controller
             'filters'  => $filters,
             'jobTypes' => JobOrderHomeQuery::JOB_TYPES,
             'groups'   => JobOrderHomeQuery::GROUPS,
+            // รายชื่อ (Name) จากหน้า Job Order Type (ตาราง code) ไม่ซ้ำกัน เรียงตามชื่อ
+            'machineTypes' => DB::table('code')
+                ->whereNotNull('name')
+                ->where('name', '<>', '')
+                ->distinct()
+                ->orderBy('name')
+                ->pluck('name'),
         ]);
     }
 

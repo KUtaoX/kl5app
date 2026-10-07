@@ -56,7 +56,7 @@ function formatCost(n) {
     return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export default function Job_Order_Home({ jobs, filters, jobTypes, groups }) {
+export default function Job_Order_Home({ jobs, filters, jobTypes, groups, machineTypes = [] }) {
     const [form, setForm] = useState(filters);
     const [showMore, setShowMore] = useState(
         Boolean(filters.site || filters.part || filters.from || filters.to),
@@ -83,7 +83,20 @@ export default function Job_Order_Home({ jobs, filters, jobTypes, groups }) {
         visit({ sort: key, dir: filters.sort === key && filters.dir === 'asc' ? 'desc' : 'asc' });
 
     const clearFilters = () =>
-        visit({ group: '', search: '', type: '', site: '', part: '', from: '', to: '' });
+        visit({ group: '', machine: '', search: '', type: '', site: '', part: '', from: '', to: '' });
+
+    // ค่าในช่องเลือก: "g:1" = กลุ่ม TEMP, "m:Mobile Crane" = ชนิดเครื่องจักรตาม Name
+    const groupMachineValue = filters.machine
+        ? `m:${filters.machine}`
+        : filters.group !== '' && filters.group != null
+        ? `g:${filters.group}`
+        : '';
+
+    const changeGroupMachine = (value) => {
+        if (value.startsWith('m:')) visit({ machine: value.slice(2), group: '' });
+        else if (value.startsWith('g:')) visit({ group: value.slice(2), machine: '' });
+        else visit({ group: '', machine: '' });
+    };
 
     const exportUrl = route('job-order-home.export', cleanQuery(filters));
 
@@ -102,15 +115,19 @@ export default function Job_Order_Home({ jobs, filters, jobTypes, groups }) {
                     {/* ---------- ตัวกรอง ---------- */}
                     <form onSubmit={handleSearch} className="mb-4 print:hidden">
                         <div className="flex flex-wrap items-center gap-3">
+                            {/* MT / TEMP / LGT ตามด้วย Name จากหน้า Job Order Type */}
                             <select
-                                value={form.group}
-                                onChange={(e) => visit({ group: e.target.value })}
-                                className={`${inputClass} pr-8`}
-                                aria-label="กลุ่มงาน"
+                                value={groupMachineValue}
+                                onChange={(e) => changeGroupMachine(e.target.value)}
+                                className={`${inputClass} max-w-[16rem] pr-8`}
+                                aria-label="กลุ่มงาน / ชนิดเครื่องจักร"
                             >
-                                <option value="">ทุกกลุ่ม (MT / TEMP / LGT)</option>
+                                <option value="">ทั้งหมด</option>
                                 {Object.entries(groups).map(([value, label]) => (
-                                    <option key={value} value={value}>{label}</option>
+                                    <option key={`g${value}`} value={`g:${value}`}>{label}</option>
+                                ))}
+                                {machineTypes.map((name) => (
+                                    <option key={`m${name}`} value={`m:${name}`}>{name}</option>
                                 ))}
                             </select>
 

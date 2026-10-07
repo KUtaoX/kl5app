@@ -32,7 +32,8 @@ class JobOrderHomeQuery
     ];
 
     private const DEFAULTS = [
-        'group'  => '',
+        'group'   => '',
+        'machine' => '',
         'search' => '',
         'type'   => '',
         'site'   => '',
@@ -47,6 +48,8 @@ class JobOrderHomeQuery
     {
         $validated = $request->validate([
             'group'  => ['nullable', Rule::in(array_map('strval', array_keys(self::GROUPS)))],
+            // ชนิดเครื่องจักร = Name ของรายการในหน้า Job Order Type (ตาราง code)
+            'machine' => ['nullable', 'string', 'max:255'],
             'search' => ['nullable', 'string', 'max:100'],
             'type'   => ['nullable', Rule::in(array_map('strval', array_keys(self::JOB_TYPES)))],
             'site'   => ['nullable', 'string', 'max:100'],
@@ -57,7 +60,10 @@ class JobOrderHomeQuery
             'dir'    => ['nullable', Rule::in(['asc', 'desc'])],
         ]);
 
-        return array_merge(self::DEFAULTS, array_filter($validated, fn ($v) => $v !== null));
+        $filters = array_merge(self::DEFAULTS, array_filter($validated, fn ($v) => $v !== null));
+        $filters['machine'] = (string) $filters['machine'];
+
+        return $filters;
     }
 
     public static function build(array $f): Builder
@@ -80,6 +86,22 @@ class JobOrderHomeQuery
 
             // ใช้ !== '' เพราะค่า '0' (MT / ซ่อมเร่งด่วน) เป็นค่าที่ถูกต้อง
             ->when($f['group'] !== '', fn (Builder $q) => $q->where('jo.type_code', (int) $f['group']))
+            // ชนิดเครื่องจักร: รหัสเครื่องขึ้นต้นด้วย Code ของรายการที่มี Name นี้ เช่น Mobile Crane → RT-MBCR → RT-MBCR-11-0005
+            // ถ้ามีหลายรายการชื่อเดียวกัน จะรวมทุก Code ของชื่อนั้น
+            ->when((string) $f['machine'] !== '', function (Builder $q) use ($f) {
+                $codes = DB::table('code')->where('name', $f['machine'])->pluck('code')
+                    ->map(fn ($c) => trim((string) $c))->filter()->unique();
+
+                if ($codes->isEmpty()) {
+                    $q->whereRaw('1 = 0'); // ไม่มีรายการชื่อนี้แล้ว
+                    return;
+                }
+                $q->where(function (Builder $w) use ($codes) {
+                    foreach ($codes as $code) {
+                        $w->orWhere('t.asset', 'like', addcslashes($code, '\\%_') . '%');
+                    }
+                });
+            })
             ->when($f['type'] !== '', fn (Builder $q) => $q->where('jo.status1', (int) $f['type']))
 
             ->when($f['search'] !== '', function (Builder $q) use ($f) {

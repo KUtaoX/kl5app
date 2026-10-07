@@ -2,7 +2,7 @@ import Modal from '@/Components/Modal';
 import TechnicianInput from '@/Components/TechnicianInput';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 /*
  * ข้อมูลมาจาก MaintenanceController (ตาราง form1)
@@ -520,6 +520,120 @@ function RepairList({ items, filters, counts, can, notify }) {
 // =====================================================================
 const emptyAsset = () => ({ code: '', asset_no: '' });
 
+/**
+ * พิมพ์ Asset Code แล้วดึงชื่อเครื่องและ Asset No. ปัจจุบันจาก Machine List มาแสดงใต้ช่อง
+ * (แทน getuser.php ของระบบเดิม) ถ้าช่อง Asset No. ยังว่าง จะเติมให้อัตโนมัติ
+ */
+function useToolLookup(code, onFound) {
+    const [state, setState] = useState({ status: 'idle' }); // idle | loading | found | missing
+    const onFoundRef = useRef(onFound);
+    onFoundRef.current = onFound;
+
+    useEffect(() => {
+        const q = code.trim();
+        if (q.length < 3) {
+            setState({ status: 'idle' });
+            return;
+        }
+        setState((s) => ({ ...s, status: 'loading' }));
+        let cancelled = false;
+        const timer = setTimeout(async () => {
+            try {
+                const res = await window.axios.get(route('maintenance.tool-lookup'), { params: { code: q } });
+                if (cancelled) return;
+                if (res.data.found) {
+                    setState({ status: 'found', tool: res.data });
+                    onFoundRef.current?.(res.data);
+                } else {
+                    setState({ status: 'missing' });
+                }
+            } catch {
+                if (!cancelled) setState({ status: 'idle' });
+            }
+        }, 350);
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
+    }, [code]);
+
+    return state;
+}
+
+function ToolInfo({ lookup }) {
+    if (lookup.status === 'loading') {
+        return <p className="mt-1 text-xs text-gray-400">กำลังค้นหาเครื่อง…</p>;
+    }
+    if (lookup.status === 'missing') {
+        return <p className="mt-1 text-xs text-rose-600">ไม่พบ Asset Code นี้ใน Machine List</p>;
+    }
+    if (lookup.status === 'found') {
+        const t = lookup.tool;
+        return (
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                <svg className="h-3.5 w-3.5 shrink-0 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="font-medium text-gray-900">{t.name || '—'}</span>
+                <span className="text-gray-500">
+                    Asset No.: <span className="font-mono text-gray-700">{t.asset_no || '—'}</span>
+                </span>
+                {t.project_site && (
+                    <span className="rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700">{t.project_site}</span>
+                )}
+            </p>
+        );
+    }
+    return null;
+}
+
+function AssetRow({ index, asset, error, canRemove, onChange, onRemove, onClearError }) {
+    // ชื่อเครื่องจาก Machine List; ถ้า Asset No. ยังว่างให้เติมจากข้อมูลเครื่อง
+    const lookup = useToolLookup(asset.code, (tool) => {
+        if (!asset.asset_no && tool.asset_no) onChange('asset_no', tool.asset_no);
+    });
+
+    return (
+        <div>
+            <div className="grid grid-cols-[1fr_1fr_2rem] items-center gap-2">
+                <input
+                    type="text"
+                    value={asset.code}
+                    onChange={(e) => {
+                        onChange('code', e.target.value);
+                        onClearError();
+                    }}
+                    placeholder="RT-SDBX-10-0075"
+                    aria-label={`Asset Code รายการที่ ${index + 1}`}
+                    className={`${inputClass} w-full font-mono uppercase ${
+                        error || lookup.status === 'missing' ? 'border-rose-400' : lookup.status === 'found' ? 'border-emerald-400' : ''
+                    }`}
+                />
+                <input
+                    type="text"
+                    value={asset.asset_no}
+                    onChange={(e) => onChange('asset_no', e.target.value)}
+                    placeholder="GI 4901510137"
+                    aria-label={`Asset No. รายการที่ ${index + 1}`}
+                    className={`${inputClass} w-full font-mono`}
+                />
+                <button
+                    type="button"
+                    onClick={onRemove}
+                    disabled={!canRemove}
+                    aria-label={`ลบรายการที่ ${index + 1}`}
+                    className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400"
+                >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+                    </svg>
+                </button>
+            </div>
+            {error ? <p className="mt-1 text-xs text-rose-600">{error}</p> : <ToolInfo lookup={lookup} />}
+        </div>
+    );
+}
+
 function AddTool({ onAdded, onCancel }) {
     const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
         site: '',
@@ -591,41 +705,16 @@ function AddTool({ onAdded, onCancel }) {
                             <span />
                         </div>
                         {data.assets.map((a, i) => (
-                            <div key={i}>
-                                <div className="grid grid-cols-[1fr_1fr_2rem] items-center gap-2">
-                                    <input
-                                        type="text"
-                                        value={a.code}
-                                        onChange={(e) => {
-                                            updateAsset(i, 'code', e.target.value);
-                                            clearErrors(`assets.${i}.code`);
-                                        }}
-                                        placeholder="RT-SDBX-10-0075"
-                                        aria-label={`Asset Code รายการที่ ${i + 1}`}
-                                        className={`${inputClass} w-full font-mono uppercase ${assetError(i) ? 'border-rose-400' : ''}`}
-                                    />
-                                    <input
-                                        type="text"
-                                        value={a.asset_no}
-                                        onChange={(e) => updateAsset(i, 'asset_no', e.target.value)}
-                                        placeholder="GI 4901510137"
-                                        aria-label={`Asset No. รายการที่ ${i + 1}`}
-                                        className={`${inputClass} w-full font-mono`}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => removeAsset(i)}
-                                        disabled={data.assets.length === 1}
-                                        aria-label={`ลบรายการที่ ${i + 1}`}
-                                        className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400"
-                                    >
-                                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                            <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
-                                        </svg>
-                                    </button>
-                                </div>
-                                {assetError(i) && <p className="mt-1 text-xs text-rose-600">{assetError(i)}</p>}
-                            </div>
+                            <AssetRow
+                                key={i}
+                                index={i}
+                                asset={a}
+                                error={assetError(i)}
+                                canRemove={data.assets.length > 1}
+                                onChange={(field, value) => updateAsset(i, field, value)}
+                                onRemove={() => removeAsset(i)}
+                                onClearError={() => clearErrors(`assets.${i}.code`)}
+                            />
                         ))}
                     </div>
 

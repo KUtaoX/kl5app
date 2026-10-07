@@ -136,6 +136,34 @@ class MaintenanceController extends Controller
     }
 
     // ---------------------------------------------------------------
+    // GET /maintenance/tool-lookup?code= — ดูข้อมูลเครื่องจาก Asset Code (ใช้ในฟอร์ม Add Tool)
+    // ---------------------------------------------------------------
+    public function toolLookup(Request $request)
+    {
+        $code = trim((string) $request->query('code', ''));
+        if ($code === '') {
+            return response()->json(['found' => false]);
+        }
+
+        $tool = DB::table('tool')
+            ->where('asset', $code)
+            ->first(['id', 'asset', 'name', 'asset_in', 'project_site']);
+
+        if (! $tool) {
+            return response()->json(['found' => false]);
+        }
+
+        return response()->json([
+            'found'        => true,
+            'id'           => $tool->id,
+            'code'         => $tool->asset,
+            'name'         => $tool->name,
+            'asset_no'     => (string) ($tool->asset_in ?? ''),
+            'project_site' => $tool->project_site,
+        ]);
+    }
+
+    // ---------------------------------------------------------------
     // POST /maintenance — Add Tool (ส่งเครื่องเข้าซ่อมได้หลายเครื่องในครั้งเดียว)
     // ---------------------------------------------------------------
     public function store(Request $request): RedirectResponse

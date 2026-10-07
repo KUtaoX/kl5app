@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useState,useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Modal from '@/Components/Modal';
 
 // สีสำหรับ badge Project Site — hash ชื่อไซต์เป็น index คงที่
@@ -16,6 +16,9 @@ const SITE_COLORS = [
     'bg-orange-50 text-orange-700',
 ];
 
+// พิมพ์แล้วรอเท่านี้ (มิลลิวินาที) ค่อยค้นหา จะได้ไม่ยิงคำขอทุกตัวอักษร
+const SEARCH_DELAY = 400;
+
 function siteColor(site) {
     if (!site) return 'bg-gray-100 text-gray-500';
     let hash = 0;
@@ -27,11 +30,36 @@ function siteColor(site) {
 
 export default function Index({ tools, filters }) {
     const [search, setSearch] = useState(filters.search || '');
-    const [searchColumn, setSearchColumn] = useState(filters.search_column || 'all');
+    const [searching, setSearching] = useState(false);
+    const lastSearched = useRef(filters.search || '');
     const canAdd = usePage().props.auth.user.permission2 === '1';
     const canEdit = usePage().props.auth.user.permission3 === '1';
     const canDelete = usePage().props.auth.user.permission4 === '1';
     const columnCount = 8 + (canEdit ? 1 : 0) + (canDelete ? 1 : 0);
+
+    // ---------- ค้นหาอัตโนมัติ ----------
+    // ค้นหาทุกคอลัมน์ (Asset Code, Asset No., IO, Name, Model, Serial, Project Site) เหมือนตัวเลือก "Select Filter" เดิม
+    useEffect(() => {
+        const query = search.trim();
+        if (query === lastSearched.current) return;
+
+        const timer = setTimeout(() => {
+            lastSearched.current = query;
+            router.get(
+                '/machine-list',
+                query ? { search: query } : {},
+                {
+                    preserveState: true,
+                    preserveScroll: true,
+                    replace: true,
+                    onStart: () => setSearching(true),
+                    onFinish: () => setSearching(false),
+                },
+            );
+        }, SEARCH_DELAY);
+
+        return () => clearTimeout(timer);
+    }, [search]);
 
     // ---------- ลบเครื่อง ----------
     const [confirmTool, setConfirmTool] = useState(null);
@@ -71,11 +99,6 @@ export default function Index({ tools, filters }) {
         });
     }
 
-    function handleSearch(e) {
-        e.preventDefault();
-        router.get('/machine-list', { search, search_column: searchColumn }, { preserveState: true, replace: true });
-    }
-
     return (
         <AuthenticatedLayout
             header={
@@ -90,67 +113,68 @@ export default function Index({ tools, filters }) {
                 <div className="mx-auto max-w-full px-4 sm:px-6 lg:px-8">
 
                     <div className="mb-4 grid grid-cols-1 items-center gap-3 sm:grid-cols-3">
-                        
-                    <div className="hidden sm:block" />
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
-                        <select
-                            value={searchColumn}
-                            onChange={(e) => setSearchColumn(e.target.value)}
-                            className="rounded-lg border border-gray-300 py-2 px-6 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        >
-                            <option value="all">Select Filter</option>
-                            <option value="asset">ASSET CODE</option>
-                            <option value="asset_in">ASSET NO.</option>
-                            <option value="io_no">IO PRE.</option>
-                            <option value="io_no2">IO COR.</option>
-                            <option value="name">NAME</option>
-                            <option value="model">MODEL</option>
-                            <option value="serial">SERIAL</option>
-                            <option value="project_site">PROJECT SITE</option>
-                        </select>
+                        <div className="hidden sm:block" />
 
-                        <form onSubmit={handleSearch} className="flex w-full max-w-sm gap-2">
-                            <div className="relative w-full">
-                                <svg
-                                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
-                                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                                >
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" />
-                                </svg>
+                        <div className="flex justify-center">
+                            <div className="relative w-full max-w-md">
+                                {searching ? (
+                                    <svg
+                                        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-indigo-500"
+                                        fill="none" viewBox="0 0 24 24" aria-hidden="true"
+                                    >
+                                        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                                        <path d="M21 12a9 9 0 00-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                                    </svg>
+                                ) : (
+                                    <svg
+                                        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"
+                                    >
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" />
+                                    </svg>
+                                )}
                                 <input
                                     type="text"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
-                                    placeholder="ค้นหา ชื่อ / รหัสทรัพย์สิน / Serial..."
-                                    className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                    onKeyDown={(e) => e.key === 'Escape' && setSearch('')}
+                                    placeholder="ค้นหา Asset Code / ชื่อ / Model / Serial / Site..."
+                                    aria-label="ค้นหาเครื่องจักร"
+                                    className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-9 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                                 />
+                                {search && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setSearch('')}
+                                        aria-label="ล้างคำค้นหา"
+                                        title="ล้างคำค้นหา (Esc)"
+                                        className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                                    >
+                                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                            <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+                                        </svg>
+                                    </button>
+                                )}
                             </div>
-                            <button
-                                type="submit"
-                                className="shrink-0 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-200"
-                            >
-                                Search
-                            </button>
-                        </form>
+                        </div>
+
+                        <div className="flex justify-end">
+                            {canAdd && (
+                                <button
+                                    type="button"
+                                    onClick={() => router.visit('/add-tool')}
+                                    className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700"
+                                >
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                    </svg>
+                                    Add Tool
+                                </button>
+                            )}
+                        </div>
                     </div>
 
-                    <div className="flex justify-end">
-                        {canAdd && (
-                            <button
-                                type="button"
-                                onClick={() => router.visit('/add-tool')}  
-                                className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700"
-                            >
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                            </svg>
-                                Add Tool
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                    <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
+                    <div className={`overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200 transition-opacity ${searching ? 'opacity-70' : ''}`}>
                         <div className="overflow-x-auto">
                             <table className="min-w-full text-sm">
                                 <colgroup>
@@ -163,7 +187,7 @@ export default function Index({ tools, filters }) {
                                     <col className="w-44" />
                                     <col className="w-24" />
                                     {canEdit && <col className="w-16" />}
-                                    {canDelete && <col className="w-16" />}   
+                                    {canDelete && <col className="w-16" />}
                                 </colgroup>
                                 <thead>
                                     <tr className="border-b border-gray-200 bg-gray-50">
@@ -188,10 +212,10 @@ export default function Index({ tools, filters }) {
                                         <tr
                                             key={tool.id}
                                             onClick={() => router.visit(`/record-tool/${tool.id}`)}
-                                            className={`transition hover:bg-indigo-50/40 ${idx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'}`}
+                                            className={`cursor-pointer transition hover:bg-indigo-50/40 ${idx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'}`}
                                         >
-                                            <td className="px-4 py-3 text-center align-top font-mono text-xs font-medium text-indigo-600">            
-                                                    {tool.asset}
+                                            <td className="px-4 py-3 text-center align-top font-mono text-xs font-medium text-indigo-600">
+                                                {tool.asset}
                                             </td>
                                             <td className="px-4 py-4 text-center align-top font-mono text-xs text-gray-600">{tool.asset_in || '—'}</td>
                                             <td className="px-4 py-4 text-center align-top font-mono text-xs tabular-nums text-gray-500">{tool.io_no || '—'}</td>
@@ -231,7 +255,7 @@ export default function Index({ tools, filters }) {
                                     {tools.data.length === 0 && (
                                         <tr>
                                             <td colSpan={columnCount} className="px-4 py-10 text-center text-gray-400">
-                                                ไม่พบข้อมูล
+                                                {search.trim() ? `ไม่พบเครื่องที่ตรงกับ "${search.trim()}"` : 'ไม่พบข้อมูล'}
                                             </td>
                                         </tr>
                                     )}
@@ -302,12 +326,11 @@ export default function Index({ tools, filters }) {
                 )}
             </Modal>
 
-             {toast && (
+            {toast && (
                 <div role="status" className="fixed bottom-6 right-6 z-50 rounded-lg bg-gray-900 px-4 py-3 text-sm font-medium text-white shadow-lg dark:bg-gray-100">
                     {toast}
                 </div>
             )}
-
         </AuthenticatedLayout>
     );
 }
