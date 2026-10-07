@@ -191,7 +191,6 @@ export default function Job_Order_Home({ jobs, filters, jobTypes, groups, machin
                                     Print
                                 </a>
 
-                                {/* <a> ธรรมดา เพราะเป็นการดาวน์โหลดไฟล์ ไม่ใช่ Inertia visit */}
                                 <a
                                     href={exportUrl}
                                     className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700"
