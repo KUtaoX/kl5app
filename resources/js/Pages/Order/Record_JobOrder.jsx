@@ -1,5 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
+import { useMemo } from 'react';
 
 const JOB_TYPES = [
     { value: 'urgent', label: 'ซ่อมเร่งด่วน' },
@@ -9,8 +10,7 @@ const JOB_TYPES = [
     { value: 'internal', label: 'ซ่อมภายใน' },
 ];
 
-// นามสกุลไฟล์ที่ยอมให้แนบในส่วน "เอกสาร" — เช็คฝั่ง client เพื่อ UX
-// เซิร์ฟเวอร์ยังต้อง validate ซ้ำเสมอ (ห้ามพึ่งการเช็คฝั่งนี้อย่างเดียว)
+// นามสกุลไฟล์ที่ยอมให้แนบในส่วน "เอกสาร" 
 const ALLOWED_DOC_EXT = ['jpg', 'jpeg', 'png', 'pdf', 'xlsx', 'xls', 'doc', 'docx'];
 const MAX_DOC_SIZE_MB = 5;
 const MAX_DOC_COUNT = 3;
@@ -129,7 +129,7 @@ function RadioOption({ editable, checked, onChange, name, label }) {
     );
 }
 
-export default function Record({ tool, jobOrder, editable = false }) {
+export default function Record({ tool, jobOrder, editable = false, partSuggestions = [] }) {
     const machineLabel = tool
         ? `${tool.name ?? ''}${tool.asset ? ` | ${tool.asset}` : ''}`
         : '';
@@ -181,6 +181,12 @@ export default function Record({ tool, jobOrder, editable = false }) {
         file_job: [],
     });
 
+    const sparePartOptions = useMemo(() => {
+        const typed = data.list1.map((s) => (s ?? '').trim()).filter(Boolean);
+        return [...new Set([...partSuggestions, ...typed])];
+    }, [partSuggestions, data.list1]);
+
+    
     function updateRow(field, index, value) {
         setData((prev) => {
             const next = [...prev[field]];
@@ -457,7 +463,9 @@ export default function Record({ tool, jobOrder, editable = false }) {
                                             <div className="col-span-5 flex items-center gap-1 p-2">
                                                 <input
                                                     type="text"
-                                                    value={data.list1[i]}
+                                                    list="spare-part-suggestions"
+                                                    autoComplete="off"
+                                                    value={data.list1[i] ?? ''}
                                                     onChange={(e) => updateRow('list1', i, e.target.value)}
                                                     className="w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                                 />
@@ -498,6 +506,12 @@ export default function Record({ tool, jobOrder, editable = false }) {
                                         </div>
                                     ))}
                                 </div>
+
+                                <datalist id="spare-part-suggestions">
+                                    {sparePartOptions.map((name) => (
+                                        <option key={name} value={name} />
+                                    ))}
+                                </datalist>
 
                                 {/* พนักงาน */}
                                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">

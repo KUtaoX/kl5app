@@ -236,6 +236,14 @@ class RecordController extends Controller
 
         return Inertia::render('Order/Record_JobOrder', [
             'editable' => $editable,
+            'partSuggestions' => DB::table('job_order_sub as s')
+                ->join('job_order as j', 'j.id', '=', 's.job_id')
+                ->where('j.id_tool', $jobOrder->id_tool)
+                ->whereNotNull('s.list1')
+                ->where('s.list1', '<>', '')
+                ->distinct()
+                ->orderBy('s.list1')
+                ->pluck('s.list1'),
             'tool' => $tool ? [
                 'id'    => $tool->id,
                 'name'  => $tool->name,
